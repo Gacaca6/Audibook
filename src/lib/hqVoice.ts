@@ -17,16 +17,35 @@ type JobDoneListener = (job: HqGenerationJob, durationSec: number) => void;
 type JobErrorListener = (job: HqGenerationJob, error: string) => void;
 
 const DEFAULT_VOICE = "af_heart"; // Kokoro's warmest storyteller voice
+const AUTO_KEY = "audibook_hq_auto"; // once the user generates one chapter, auto-generate as they read
 
 interface PendingJob extends HqGenerationJob {
   requestId: string;
   text: string;
 }
 
+/** Has the user opted into HQ audio (by generating at least once)? */
+export function isHqAutoEnabled(): boolean {
+  try {
+    return localStorage.getItem(AUTO_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function enableHqAuto(): void {
+  try {
+    localStorage.setItem(AUTO_KEY, "1");
+  } catch {
+    // storage unavailable — auto mode just stays off
+  }
+}
+
 class HqVoiceManager {
   private worker: Worker | null = null;
   private queue: PendingJob[] = [];
   private activeJob: PendingJob | null = null;
+  private wakeLock: { release(): Promise<void> } | null = null;
 
   modelState: HqModelState = "idle";
   modelDownloadPercent = 0;
@@ -136,8 +155,12 @@ class HqVoiceManager {
   }
 
   private processQueue(): void {
-    if (this.activeJob || this.queue.length === 0) return;
+    if (this.activeJob || this.queue.length === 0) {
+      if (!this.activeJob && this.queue.length === 0) this.releaseWakeLock();
+      return;
+    }
     this.activeJob = this.queue.shift()!;
+    this.acquireWakeLock();
     // Kokoro handles ~1-2 sentences at a time best; chunk on sentence borders
     const chunks = chunkSentences(this.activeJob.text, 350);
     this.ensureWorker().postMessage({
@@ -146,6 +169,25 @@ class HqVoiceManager {
       chunks,
       voice: DEFAULT_VOICE,
     });
+  }
+
+  // iOS suspends JS (including workers) when the screen sleeps, which kills
+  // generation mid-way. Keep the screen awake while a job is running.
+  private async acquireWakeLock(): Promise<void> {
+    if (this.wakeLock) return;
+    try {
+      const nav = navigator as any;
+      if (nav.wakeLock?.request) {
+        this.wakeLock = await nav.wakeLock.request("screen");
+      }
+    } catch {
+      // Wake lock denied (e.g. low battery mode) — generation still runs while visible
+    }
+  }
+
+  private releaseWakeLock(): void {
+    this.wakeLock?.release().catch(() => {});
+    this.wakeLock = null;
   }
 }
 

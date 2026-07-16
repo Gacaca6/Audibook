@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Book, Chapter, UserProfile, Achievement } from "./types";
 import Dashboard from "./components/Dashboard";
 import AudiobookPlayer from "./components/AudiobookPlayer";
@@ -99,6 +99,18 @@ export default function App() {
     checkStreakOnLaunch();
   }, []);
 
+  // Fade out the static splash screen (index.html) once the library is loaded
+  useEffect(() => {
+    if (isLoading) return;
+    const splash = document.getElementById("splash");
+    if (!splash) return;
+    const timer = setTimeout(() => {
+      splash.style.opacity = "0";
+      setTimeout(() => splash.remove(), 500);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
   const fetchBooks = async () => {
     try {
       setIsLoading(true);
@@ -144,34 +156,25 @@ export default function App() {
     }
   };
 
-  // XP progression and achievement unlocks
-  const handleUpdateXP = (xpGained: number) => {
+  // XP progression and achievement unlocks. `kind` ties trophies to the
+  // action that actually earns them (not just any XP gain).
+  const handleUpdateXP = (xpGained: number, kind: "listen" | "hq" | "general" = "general") => {
     setUserProfile((prev) => {
       const nextXP = prev.xp + xpGained;
 
-      // Update achievements progress
       const updatedAchievements = prev.achievements.map((ach) => {
         if (ach.unlocked) return ach;
 
         let currentValue = ach.currentValue;
         if (ach.id === "xp-scholar") {
           currentValue = nextXP;
-        } else if (ach.id === "first-listen") {
-          currentValue = 1; // Completed 1 listen
-        } else if (ach.id === "offline-pioneer") {
-          currentValue = 1; // Downloaded 1 file
+        } else if (ach.id === "first-listen" && kind === "listen") {
+          currentValue = 1;
+        } else if (ach.id === "offline-pioneer" && kind === "hq") {
+          currentValue = 1;
         }
 
-        const unlocked = currentValue >= ach.targetValue;
-        if (unlocked && !ach.unlocked) {
-          triggerAchievementToast(ach);
-        }
-
-        return {
-          ...ach,
-          currentValue,
-          unlocked,
-        };
+        return { ...ach, currentValue, unlocked: currentValue >= ach.targetValue };
       });
 
       return {
@@ -182,14 +185,22 @@ export default function App() {
     });
   };
 
-  // Display toast notification when achievements unlock
+  // Display toast notification when achievements unlock (watches state so the
+  // profile updaters above stay pure)
   const [toastText, setToastText] = useState<string | null>(null);
-  const triggerAchievementToast = (ach: Achievement) => {
-    setToastText(`🏆 Trophy Unlocked: "${ach.title}"! ${ach.icon}`);
-    setTimeout(() => {
-      setToastText(null);
-    }, 4500);
-  };
+  const seenUnlocksRef = useRef<Set<string>>(
+    new Set(userProfile.achievements.filter((a) => a.unlocked).map((a) => a.id))
+  );
+  useEffect(() => {
+    for (const ach of userProfile.achievements) {
+      if (ach.unlocked && !seenUnlocksRef.current.has(ach.id)) {
+        seenUnlocksRef.current.add(ach.id);
+        setToastText(`🏆 Trophy Unlocked: "${ach.title}"! ${ach.icon}`);
+        const timer = setTimeout(() => setToastText(null), 4500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [userProfile.achievements]);
 
   // Delete a book (and its stored HQ audio)
   const handleDeleteBook = async (bookId: string) => {
@@ -232,7 +243,7 @@ export default function App() {
       const isAlreadyCompleted = prev.completedQuizzes.includes(key);
       const nextCompleted = isAlreadyCompleted ? prev.completedQuizzes : [...prev.completedQuizzes, key];
 
-      // Mark quiz achievements
+      // Mark quiz achievements (kept pure — the toast effect reacts to unlocks)
       const updatedAchievements = prev.achievements.map((ach) => {
         if (ach.unlocked) return ach;
 
@@ -243,16 +254,7 @@ export default function App() {
           currentValue = 1;
         }
 
-        const unlocked = currentValue >= ach.targetValue;
-        if (unlocked && !ach.unlocked) {
-          triggerAchievementToast(ach);
-        }
-
-        return {
-          ...ach,
-          currentValue,
-          unlocked,
-        };
+        return { ...ach, currentValue, unlocked: currentValue >= ach.targetValue };
       });
 
       return {

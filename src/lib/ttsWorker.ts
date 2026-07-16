@@ -1,13 +1,24 @@
 /// <reference lib="webworker" />
 import { KokoroTTS } from "kokoro-js";
+import { env } from "@huggingface/transformers";
 import { Mp3Encoder } from "@breezystack/lamejs";
 
 // Web Worker that runs Kokoro-82M (the audiblez voice model) fully in the
 // browser and encodes the result to MP3 — no server, no API, free forever.
-// The ~90MB model downloads once from the Hugging Face CDN and is cached
-// by the browser for offline use.
+// The model downloads once from the Hugging Face CDN and is cached by the
+// browser for offline use.
+//
+// Speed/memory choices for phones:
+//  - q4 quantization: ~half the download and RAM of q8, noticeably faster on CPU
+//  - WASM multithreading when the page is crossOriginIsolated (COOP/COEP headers)
+//  - MP3 is encoded incrementally per sentence chunk, so a full chapter never
+//    holds its entire PCM stream in memory (critical on iOS Safari)
 
 const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
+
+// Use every core we're allowed: threads only work when crossOriginIsolated
+const hwThreads = (self.navigator && self.navigator.hardwareConcurrency) || 4;
+env.backends.onnx.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, hwThreads) : 1;
 
 let tts: KokoroTTS | null = null;
 let loadingPromise: Promise<KokoroTTS> | null = null;
@@ -28,12 +39,12 @@ function post(message: object) {
 async function loadModel(): Promise<KokoroTTS> {
   if (tts) return tts;
   if (!loadingPromise) {
-    // WebGPU is much faster where available (needs fp32); WASM works everywhere (q8)
+    // WebGPU is much faster where available (needs fp32); WASM works everywhere (q4)
     const hasWebGPU = typeof (self as any).navigator !== "undefined" && !!(self as any).navigator.gpu;
 
     const load = (device: "webgpu" | "wasm") =>
       KokoroTTS.from_pretrained(MODEL_ID, {
-        dtype: device === "webgpu" ? "fp32" : "q8",
+        dtype: device === "webgpu" ? "fp32" : "q4",
         device,
         progress_callback: (info: any) => {
           if (info.status === "progress" && typeof info.progress === "number") {
@@ -61,32 +72,30 @@ function floatTo16BitPcm(input: Float32Array): Int16Array {
   return output;
 }
 
-function encodeMp3(samples: Int16Array, sampleRate: number, kbps = 48): Uint8Array[] {
-  const encoder = new Mp3Encoder(1, sampleRate, kbps);
-  const parts: Uint8Array[] = [];
-  const blockSize = 1152 * 16;
-  for (let i = 0; i < samples.length; i += blockSize) {
-    const chunk = samples.subarray(i, i + blockSize);
-    const encoded = encoder.encodeBuffer(chunk);
-    if (encoded.length > 0) parts.push(new Uint8Array(encoded));
-  }
-  const final = encoder.flush();
-  if (final.length > 0) parts.push(new Uint8Array(final));
-  return parts;
-}
-
 async function handleGenerate(req: GenerateRequest) {
   try {
     const model = await loadModel();
     post({ type: "model-ready" });
 
-    const pcmParts: Float32Array[] = [];
+    let encoder: Mp3Encoder | null = null;
     let sampleRate = 24000;
+    const mp3Parts: Uint8Array[] = [];
+    let totalSamples = 0;
+    const blockSize = 1152 * 16;
 
     for (let i = 0; i < req.chunks.length; i++) {
       const audio = await model.generate(req.chunks[i], { voice: req.voice as any });
-      pcmParts.push(audio.audio);
       sampleRate = audio.sampling_rate;
+      if (!encoder) encoder = new Mp3Encoder(1, sampleRate, 48);
+
+      // Encode this chunk's PCM right away and let it be garbage-collected
+      const samples = floatTo16BitPcm(audio.audio);
+      totalSamples += samples.length;
+      for (let s = 0; s < samples.length; s += blockSize) {
+        const encoded = encoder.encodeBuffer(samples.subarray(s, s + blockSize));
+        if (encoded.length > 0) mp3Parts.push(new Uint8Array(encoded));
+      }
+
       post({
         type: "generate-progress",
         requestId: req.requestId,
@@ -94,18 +103,13 @@ async function handleGenerate(req: GenerateRequest) {
       });
     }
 
-    // Concatenate all chunks into one PCM stream, then encode to MP3
-    const totalLength = pcmParts.reduce((sum, p) => sum + p.length, 0);
-    const pcm = new Float32Array(totalLength);
-    let offset = 0;
-    for (const part of pcmParts) {
-      pcm.set(part, offset);
-      offset += part.length;
+    if (encoder) {
+      const final = encoder.flush();
+      if (final.length > 0) mp3Parts.push(new Uint8Array(final));
     }
 
-    const mp3Parts = encodeMp3(floatTo16BitPcm(pcm), sampleRate);
     const blob = new Blob(mp3Parts as BlobPart[], { type: "audio/mpeg" });
-    const durationSec = Math.round(totalLength / sampleRate);
+    const durationSec = Math.round(totalSamples / sampleRate);
 
     post({ type: "generate-done", requestId: req.requestId, blob, durationSec });
   } catch (err: any) {

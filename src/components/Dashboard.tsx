@@ -46,7 +46,7 @@ export default function Dashboard({
         <div className="flex items-center gap-2">
           <AubiMascot mood="happy" className="w-12 h-12" />
           <div>
-            <h4 className="font-display font-black text-slate-800 text-sm leading-none">AubiBook</h4>
+            <h4 className="font-display font-black text-slate-800 text-sm leading-none">Audibook</h4>
             <p className="font-sans text-[10px] text-slate-400 mt-0.5 font-bold">Your Speech Companion</p>
           </div>
         </div>

@@ -1,8 +1,8 @@
-# 🦉 AubiBook
+# 🦉 Audibook
 
 **Turn any book into a gamified audiobook — Duolingo-style. 100% free, forever.**
 
-AubiBook converts your EPUB, PDF, and TXT files into audiobooks with comprehension quizzes, XP, streaks, and trophies. Everything runs **inside your browser** — your books never leave your device, there are no servers, no accounts, and no API keys. Inspired by [audiblez](https://github.com/santinic/audiblez).
+Audibook converts your EPUB, PDF, and TXT files into audiobooks with comprehension quizzes, XP, streaks, and trophies. Everything runs **inside your browser** — your books never leave your device, there are no servers, no accounts, and no API keys. Inspired by [audiblez](https://github.com/santinic/audiblez).
 
 ## How it's free
 
@@ -10,7 +10,7 @@ AubiBook converts your EPUB, PDF, and TXT files into audiobooks with comprehensi
 |---|---|
 | 📚 Book parsing | EPUB (real chapters from the book's own table of contents), PDF, and TXT are parsed on-device |
 | 🗣️ Instant voice | Your device's built-in voices (Siri voices on iPhone) start narrating immediately |
-| 🎙️ HQ voice | [Kokoro-82M](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) — the audiblez voice — runs in your browser via WebAssembly/WebGPU. One ~90MB download, then it works offline forever |
+| 🎙️ HQ voice | [Kokoro-82M](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) — the audiblez voice — runs in your browser via WebAssembly/WebGPU (multithreaded, q4-quantized). One ~45MB download, then it works offline forever. Chapters generate one at a time as you reach them |
 | 🧠 Quizzes | Generated on-device from the chapter text (cloze comprehension questions) |
 | 💾 Storage | Books and generated audio live in your browser's IndexedDB — fully offline |
 | 🌐 Hosting | Static files only — deploys free on GitHub Pages |

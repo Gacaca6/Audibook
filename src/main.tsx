@@ -9,6 +9,11 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
+// Ask the browser to protect our storage (books + generated audio) from eviction
+if (navigator.storage?.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
 // Register Service Worker for PWA support (production only — caching breaks Vite dev HMR)
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

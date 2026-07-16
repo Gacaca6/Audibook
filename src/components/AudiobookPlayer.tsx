@@ -4,7 +4,7 @@ import { ChevronLeft, Play, Pause, RotateCcw, RotateCw, Check, Sparkles, HelpCir
 import { motion } from "motion/react";
 import AubiMascot from "./AubiMascot";
 import { SpeechReader } from "../lib/speech";
-import { hqVoice, HqVoiceManager } from "../lib/hqVoice";
+import { hqVoice, HqVoiceManager, isHqAutoEnabled, enableHqAuto } from "../lib/hqVoice";
 import * as db from "../lib/db";
 
 interface AudiobookPlayerProps {
@@ -12,7 +12,7 @@ interface AudiobookPlayerProps {
   onBack: () => void;
   onOpenQuiz: (chapter: Chapter) => void;
   completedQuizzes: string[]; // bookId-chapterId
-  onUpdateXP: (xp: number) => void;
+  onUpdateXP: (xp: number, kind?: "listen" | "hq" | "general") => void;
   onUpdateBook: (book: Book) => void;
 }
 
@@ -60,6 +60,7 @@ export default function AudiobookPlayer({
     };
     hqVoice.onJobDone = (job, durationSec) => {
       if (job.bookId !== bookRef.current.id) return;
+      enableHqAuto(); // from now on, chapters generate automatically as the user reaches them
       setGenPercent((prev) => {
         const next = { ...prev };
         delete next[job.chapterId];
@@ -73,7 +74,7 @@ export default function AudiobookPlayer({
         ),
       };
       onUpdateBook(updated);
-      onUpdateXP(15); // reward for preparing offline listening
+      onUpdateXP(15, "hq"); // reward for preparing offline listening
     };
     hqVoice.onJobError = (job, error) => {
       if (job.bookId !== bookRef.current.id) return;
@@ -120,9 +121,21 @@ export default function AudiobookPlayer({
     reader.onEnd = () => {
       setIsPlaying(false);
       setCurrentTime(0);
-      onUpdateXP(10);
+      onUpdateXP(10, "listen");
     };
     speechRef.current = reader;
+
+    // The user reached this chapter: if they've opted into HQ audio, generate
+    // it now (one chapter at a time — never the whole book up front)
+    if (
+      currentChapter.hqAudio === "none" &&
+      isHqAutoEnabled() &&
+      HqVoiceManager.isSupported() &&
+      !hqVoice.isQueued(book.id, currentChapter.id)
+    ) {
+      setGenPercent((prev) => ({ ...prev, [currentChapter.id]: 0 }));
+      hqVoice.generateChapter(book.id, currentChapter.id, currentChapter.text);
+    }
 
     return () => {
       cancelled = true;
@@ -147,7 +160,7 @@ export default function AudiobookPlayer({
   const handleAudioEnded = () => {
     setIsPlaying(false);
     setCurrentTime(0);
-    onUpdateXP(10);
+    onUpdateXP(10, "listen");
   };
 
   const togglePlay = () => {
@@ -160,7 +173,20 @@ export default function AudiobookPlayer({
         audioRef.current.playbackRate = playbackSpeed;
         audioRef.current
           .play()
-          .then(() => setIsPlaying(true))
+          .then(() => {
+            setIsPlaying(true);
+            // Listening in HQ: quietly prepare the NEXT chapter so it's ready
+            // when the user gets there (one ahead only, never the whole book)
+            const next = book.chapters[activeChapterIndex + 1];
+            if (
+              next &&
+              next.hqAudio === "none" &&
+              isHqAutoEnabled() &&
+              !hqVoice.isQueued(book.id, next.id)
+            ) {
+              hqVoice.generateChapter(book.id, next.id, next.text);
+            }
+          })
           .catch(() => {
             // Corrupt/unplayable stored audio: fall back to the instant voice
             speechRef.current?.play();
@@ -317,7 +343,8 @@ export default function AudiobookPlayer({
               )}
               {modelState === "idle" && !isGenerating && (
                 <p className="font-sans text-[10px] text-slate-400 font-bold mt-2">
-                  First time only: downloads the free HQ voice (~90MB) to your device.
+                  First time only: downloads the free HQ voice (~45MB). After that, chapters
+                  generate automatically as you reach them.
                 </p>
               )}
             </div>

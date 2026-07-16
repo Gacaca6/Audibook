@@ -1,5 +1,5 @@
 {
-  "name": "aubibook",
+  "name": "audibook",
   "private": true,
   "version": "2.0.0",
   "description": "AubiBook — turn your books (EPUB, PDF, TXT) into gamified audiobooks, Duolingo-style. 100% free, 100% in your browser: no server, no API keys, works offline.",
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
+    "@huggingface/transformers": "^3.5.1",
     "jszip": "^3.10.1",
     "kokoro-js": "^1.2.1",
     "lucide-react": "^0.546.0",
