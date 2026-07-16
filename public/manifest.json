@@ -1,0 +1,27 @@
+{
+  "name": "AubiBook - Gamified Audiobook Creator",
+  "short_name": "AubiBook",
+  "description": "Turn your books into gamified audiobooks — 100% free, private, and offline. Duolingo-style learning with quizzes, XP, and streaks!",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#58cc02",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "entertainment", "books"],
+  "prefer_related_applications": false
+}
