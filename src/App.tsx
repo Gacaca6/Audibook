@@ -46,15 +46,24 @@ const initialAchievements: Achievement[] = [
     unlocked: false,
   },
   {
-    id: "offline-pioneer",
-    title: "Offline Pioneer",
-    description: "Pre-download an audiobook chapter for offline trips.",
-    icon: "💾",
+    id: "shelf-builder",
+    title: "Shelf Builder",
+    description: "Turn one of your own books into an audiobook.",
+    icon: "📚",
     targetValue: 1,
     currentValue: 0,
     unlocked: false,
   }
 ];
+
+/** Keep earned progress when the achievement list itself changes between versions. */
+function mergeAchievements(stored: unknown): Achievement[] {
+  if (!Array.isArray(stored)) return initialAchievements;
+  return initialAchievements.map((base) => {
+    const prev = stored.find((a: Achievement) => a?.id === base.id);
+    return prev ? { ...base, currentValue: prev.currentValue ?? 0, unlocked: !!prev.unlocked } : base;
+  });
+}
 
 export default function App() {
   const [books, setBooks] = useState<Book[]>([]);
@@ -68,10 +77,7 @@ export default function App() {
       const stored = localStorage.getItem("aubi_profile_v1");
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Ensure achievements are up to date with new schema
-        if (!parsed.achievements || parsed.achievements.length < initialAchievements.length) {
-          parsed.achievements = initialAchievements;
-        }
+        parsed.achievements = mergeAchievements(parsed.achievements);
         return parsed;
       }
     } catch (e) {
@@ -97,17 +103,24 @@ export default function App() {
   useEffect(() => {
     fetchBooks();
     checkStreakOnLaunch();
+    // Reclaim space from the removed in-browser TTS experiment
+    db.purgeLegacyAudio().catch(() => {});
   }, []);
 
-  // Fade out the static splash screen (index.html) once the library is loaded
+  // Hand off from the static splash (index.html) once the library is ready,
+  // holding it long enough for the intro animation to actually land.
   useEffect(() => {
     if (isLoading) return;
     const splash = document.getElementById("splash");
     if (!splash) return;
+
+    const shownAt = Number(splash.dataset.shownAt || Date.now());
+    const remaining = Math.max(0, 2100 - (Date.now() - shownAt));
+
     const timer = setTimeout(() => {
-      splash.style.opacity = "0";
-      setTimeout(() => splash.remove(), 500);
-    }, 350);
+      splash.classList.add("splash-out");
+      setTimeout(() => splash.remove(), 650);
+    }, remaining);
     return () => clearTimeout(timer);
   }, [isLoading]);
 
@@ -158,7 +171,7 @@ export default function App() {
 
   // XP progression and achievement unlocks. `kind` ties trophies to the
   // action that actually earns them (not just any XP gain).
-  const handleUpdateXP = (xpGained: number, kind: "listen" | "hq" | "general" = "general") => {
+  const handleUpdateXP = (xpGained: number, kind: "listen" | "add-book" | "general" = "general") => {
     setUserProfile((prev) => {
       const nextXP = prev.xp + xpGained;
 
@@ -170,7 +183,7 @@ export default function App() {
           currentValue = nextXP;
         } else if (ach.id === "first-listen" && kind === "listen") {
           currentValue = 1;
-        } else if (ach.id === "offline-pioneer" && kind === "hq") {
+        } else if (ach.id === "shelf-builder" && kind === "add-book") {
           currentValue = 1;
         }
 
@@ -215,15 +228,10 @@ export default function App() {
     }
   };
 
-  // Persist chapter updates (e.g. HQ audio becoming ready) from the player
-  const handleUpdateBook = async (updated: Book) => {
-    setBooks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
-    setSelectedBook((prev) => (prev?.id === updated.id ? updated : prev));
-    try {
-      await db.saveBook(updated);
-    } catch (err) {
-      console.error("Failed to persist book update:", err);
-    }
+  // A newly added book landed on the shelf
+  const handleBookAdded = () => {
+    fetchBooks();
+    handleUpdateXP(25, "add-book");
   };
 
   // Select audiobook to listen
@@ -331,7 +339,6 @@ export default function App() {
                     onOpenQuiz={(ch) => setActiveQuizChapter(ch)}
                     completedQuizzes={userProfile.completedQuizzes}
                     onUpdateXP={handleUpdateXP}
-                    onUpdateBook={handleUpdateBook}
                   />
                 </motion.div>
               ) : (
@@ -348,7 +355,7 @@ export default function App() {
                     userProfile={userProfile}
                     selectedBook={selectedBook}
                     onSelectBook={handleSelectBook}
-                    onRefreshBooks={fetchBooks}
+                    onRefreshBooks={handleBookAdded}
                     onDeleteBook={handleDeleteBook}
                     onUpdateXP={handleUpdateXP}
                   />

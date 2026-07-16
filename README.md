@@ -9,11 +9,16 @@ Audibook converts your EPUB, PDF, and TXT files into audiobooks with comprehensi
 | Feature | How it works |
 |---|---|
 | 📚 Book parsing | EPUB (real chapters from the book's own table of contents), PDF, and TXT are parsed on-device |
-| 🗣️ Instant voice | Your device's built-in voices (Siri voices on iPhone) start narrating immediately |
-| 🎙️ HQ voice | [Kokoro-82M](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) — the audiblez voice — runs in your browser via WebAssembly/WebGPU (multithreaded, q4-quantized). One ~45MB download, then it works offline forever. Chapters generate one at a time as you reach them |
+| 🗣️ Narration | Your device's own speech engine — instant, offline, no download. Pick any voice installed on your phone or computer |
 | 🧠 Quizzes | Generated on-device from the chapter text (cloze comprehension questions) |
-| 💾 Storage | Books and generated audio live in your browser's IndexedDB — fully offline |
-| 🌐 Hosting | Static files only — deploys free on GitHub Pages |
+| 💾 Storage | Books live in your browser's IndexedDB — fully offline |
+| 🌐 Hosting | Static files only — deploys free on Vercel, GitHub Pages, or any static host |
+
+## Why the device voice?
+
+Audibook originally ran [Kokoro-82M](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) (the [audiblez](https://github.com/santinic/audiblez) voice) in-browser via ONNX. **It reliably crashes iOS Safari**: the model downloads, then the tab dies and reloads. This is a known upstream issue, not a tuning problem — see [transformers.js#1241](https://github.com/huggingface/transformers.js/issues/1241), [#1242](https://github.com/huggingface/transformers.js/issues/1242), and [this Kokoro-specific report](https://github.com/open-webui/open-webui/discussions/10025). Safari also caps memory at roughly 1GB per origin.
+
+The device's own speech engine has none of those problems: zero download, instant playback, works offline, and every phone already has good voices installed. A prototype that works beats a demo that crashes.
 
 ## Getting Started
 
@@ -43,4 +48,4 @@ Outputs a fully static site to `dist/` — host it on GitHub Pages, Netlify, Clo
 
 ## Tech Stack
 
-React 19 · Vite · Tailwind CSS 4 · Kokoro-82M (kokoro-js) · Web Speech API · pdf.js · JSZip · IndexedDB · Service Worker
+React 19 · Vite · Tailwind CSS 4 · Web Speech API · pdf.js · JSZip · IndexedDB · Service Worker

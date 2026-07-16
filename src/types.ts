@@ -5,8 +5,6 @@ export interface QuizQuestion {
   explanation: string;
 }
 
-export type HqAudioStatus = 'none' | 'generating' | 'ready';
-
 export interface Chapter {
   id: number;
   title: string;
@@ -14,7 +12,6 @@ export interface Chapter {
   duration: number; // estimated seconds at ~150 wpm narration
   summary: string; // bite-sized key take-away
   quiz: QuizQuestion[];
-  hqAudio: HqAudioStatus; // high-quality generated audio stored in IndexedDB
 }
 
 export interface Book {
@@ -25,7 +22,7 @@ export interface Book {
   uploadDate: string;
   chaptersCount: number;
   totalWords: number;
-  status: 'processing' | 'ready' | 'error';
+  status: "processing" | "ready" | "error";
   chapters: Chapter[];
   xpReward: number;
 }
@@ -51,6 +48,6 @@ export interface UserProfile {
 
 /** Progress reported while a book file is being parsed into chapters. */
 export interface ParseProgress {
-  stage: 'reading' | 'extracting' | 'chapters' | 'quizzes';
+  stage: "reading" | "extracting" | "chapters" | "quizzes";
   percent: number; // 0-100
 }

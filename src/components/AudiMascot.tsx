@@ -1,14 +1,14 @@
 import { motion } from "motion/react";
 
-interface AubiMascotProps {
+interface AudiMascotProps {
   mood: "happy" | "listening" | "quizzing" | "sleeping" | "celebrating" | "sad";
   className?: string;
 }
 
-export default function AubiMascot({ mood, className = "w-40 h-40" }: AubiMascotProps) {
+export default function AudiMascot({ mood, className = "w-40 h-40" }: AudiMascotProps) {
   // SVG drawing dimensions: width 200, height 200
   return (
-    <div className={`relative flex items-center justify-center ${className}`} id="aubi-mascot-container">
+    <div className={`relative flex items-center justify-center ${className}`} id="audi-mascot-container">
       <svg
         viewBox="0 0 200 200"
         className="w-full h-full drop-shadow-lg"

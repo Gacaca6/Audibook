@@ -1,12 +1,11 @@
 import { Book } from "../types";
 
-// The starter audiobook every new user gets — narrated instantly by the
-// device's own voice, upgradeable to the HQ voice with one tap.
+// The starter audiobook every new user gets, narrated by the device's own voice.
 export const sampleBook: Book = {
-  id: "aubi-adventures",
-  title: "Aubi's Adventures in Language Land",
+  id: "audi-adventures",
+  title: "Audi's Adventures in Language Land",
   author: "Professor Owl",
-  fileName: "aubi_adventures.txt",
+  fileName: "audi_adventures.txt",
   uploadDate: new Date("2026-01-01").toISOString(),
   chaptersCount: 2,
   totalWords: 160,
@@ -16,14 +15,13 @@ export const sampleBook: Book = {
     {
       id: 1,
       title: "The Mysterious Book of Sound",
-      text: "Deep inside the Whispering Woods, Aubi the little owl found a dusty book with headphones drawn on its cover. 'Hoot!' she gasped as the book spoke to her: 'Welcome, listener!' Aubi learned that audiobooks are magic scrolls that paint pictures in your mind through words you hear instead of read. To master this magic, Aubi had to listen carefully to the tone, the rhythm, and the secrets hidden in every spoken sentence.",
+      text: "Deep inside the Whispering Woods, Audi the little owl found a dusty book with headphones drawn on its cover. 'Hoot!' she gasped as the book spoke to her: 'Welcome, listener!' Audi learned that audiobooks are magic scrolls that paint pictures in your mind through words you hear instead of read. To master this magic, Audi had to listen carefully to the tone, the rhythm, and the secrets hidden in every spoken sentence.",
       duration: 35,
       summary:
-        "Aubi discovers a magical talking book and learns that audiobooks paint pictures in your mind using pitch, tone, and pacing.",
-      hqAudio: "none",
+        "Audi discovers a magical talking book and learns that audiobooks paint pictures in your mind using pitch, tone, and pacing.",
       quiz: [
         {
-          question: "Where did Aubi find the mysterious talking book?",
+          question: "Where did Audi find the mysterious talking book?",
           options: [
             "In a dusty library basement",
             "Deep inside the Whispering Woods",
@@ -32,7 +30,7 @@ export const sampleBook: Book = {
           ],
           correctOptionIndex: 1,
           explanation:
-            "The story states that Aubi found the mysterious talking book 'Deep inside the Whispering Woods'.",
+            "The story states that Audi found the mysterious talking book 'Deep inside the Whispering Woods'.",
         },
         {
           question: "What was drawn on the cover of the mysterious book?",
@@ -57,14 +55,13 @@ export const sampleBook: Book = {
     {
       id: 2,
       title: "The Rhythm of the Hoot",
-      text: "On the second day of her quest, Aubi met Pip, a chatty chipmunk who spoke so fast that all his words blurred together like a runaway train. 'Slow down, Pip!' Aubi laughed. 'A good audiobook needs a comfortable speed. Just like music, narration has a heartbeat. When we listen offline, we can take our time, breathe, and let each beautiful chapter settle into our memory.' Pip nodded, matching her slow, steady rhythm.",
+      text: "On the second day of her quest, Audi met Pip, a chatty chipmunk who spoke so fast that all his words blurred together like a runaway train. 'Slow down, Pip!' Audi laughed. 'A good audiobook needs a comfortable speed. Just like music, narration has a heartbeat. When we listen offline, we can take our time, breathe, and let each beautiful chapter settle into our memory.' Pip nodded, matching her slow, steady rhythm.",
       duration: 38,
       summary:
-        "Aubi teaches Pip the chipmunk that narration needs a controlled, musical pacing so listeners can digest every chapter.",
-      hqAudio: "none",
+        "Audi teaches Pip the chipmunk that narration needs a controlled, musical pacing so listeners can digest every chapter.",
       quiz: [
         {
-          question: "Who was Pip in Aubi's second quest?",
+          question: "Who was Pip in Audi's second quest?",
           options: [
             "A sleepy badger scientist",
             "A tiny musical cricket",
@@ -75,13 +72,13 @@ export const sampleBook: Book = {
           explanation: "Pip is introduced as 'a chatty chipmunk who spoke so fast' that his words blurred together.",
         },
         {
-          question: "What did Aubi compare audiobook narration to?",
+          question: "What did Audi compare audiobook narration to?",
           options: ["A heavy rain shower", "A heartbeat in music", "A crackling campfire", "A soaring wooden arrow"],
           correctOptionIndex: 1,
-          explanation: "Aubi says: 'Just like music, narration has a heartbeat' indicating its rhythmic nature.",
+          explanation: "Audi says: 'Just like music, narration has a heartbeat' indicating its rhythmic nature.",
         },
         {
-          question: "Why does Aubi suggest listening offline or taking our time?",
+          question: "Why does Audi suggest listening offline or taking our time?",
           options: [
             "To save battery and data",
             "To avoid annoying forest interruptions",

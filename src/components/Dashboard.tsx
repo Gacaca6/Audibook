@@ -3,7 +3,7 @@ import { Book, UserProfile } from "../types";
 import { BookOpen, Trophy, Flame, Sparkles, CheckCircle, Wifi, WifiOff, Trash2, Headphones } from "lucide-react";
 import { motion } from "motion/react";
 import BookUploader from "./BookUploader";
-import AubiMascot from "./AubiMascot";
+import AudiMascot from "./AudiMascot";
 
 interface DashboardProps {
   books: Book[];
@@ -44,7 +44,7 @@ export default function Dashboard({
       {/* Gamified Header Stats (Duolingo Style) */}
       <div className="bg-white border border-gray-200 rounded-[2rem] p-4 flex justify-between items-center shadow-sm relative">
         <div className="flex items-center gap-2">
-          <AubiMascot mood="happy" className="w-12 h-12" />
+          <AudiMascot mood="happy" className="w-12 h-12" />
           <div>
             <h4 className="font-display font-black text-slate-800 text-sm leading-none">Audibook</h4>
             <p className="font-sans text-[10px] text-slate-400 mt-0.5 font-bold">Your Speech Companion</p>
@@ -117,7 +117,7 @@ export default function Dashboard({
                   <BookOpen className="w-10 h-10 mx-auto text-slate-300 mb-3" />
                   <p className="font-display font-black text-sm text-slate-500">No books found in your shelf!</p>
                   <p className="font-sans text-xs text-slate-400 mt-1 max-w-xs mx-auto font-bold">
-                    Add an EPUB, PDF, or text file above to let Aubi narrate and build quizzes for you!
+                    Add an EPUB, PDF, or text file above to let Audi narrate and build quizzes for you!
                   </p>
                 </div>
               ) : (
@@ -152,7 +152,7 @@ export default function Dashboard({
                                 ? "bg-gray-200"
                                 : isError
                                 ? "bg-red-400"
-                                : book.id === "aubi-adventures"
+                                : book.id === "audi-adventures"
                                 ? "bg-gradient-to-br from-[#E1F5FE] to-[#1CB0F6]"
                                 : "bg-gradient-to-br from-green-300 to-[#58CC02]"
                             }`}
@@ -226,7 +226,7 @@ export default function Dashboard({
           /* Achievements Board Tab */
           <div className="bg-white border border-gray-200 rounded-[2.5rem] p-5 shadow-sm flex flex-col gap-4">
             <div className="text-center pb-2 border-b border-gray-100">
-              <h3 className="font-display font-black text-slate-800 text-base">Aubi's Golden Trophies</h3>
+              <h3 className="font-display font-black text-slate-800 text-base">Audi's Golden Trophies</h3>
               <p className="font-sans text-xs text-gray-400 mt-1 font-bold">Unlock badges by listening offline and answering quizzes!</p>
             </div>
 

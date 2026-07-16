@@ -1,8 +1,11 @@
 import { Book } from "../types";
 
-// Tiny promise wrapper around IndexedDB. Two stores:
-//  - "books": book metadata + chapter text + quizzes (keyPath: id)
-//  - "audio": generated HQ audio blobs, key `${bookId}:${chapterId}`
+// Tiny promise wrapper around IndexedDB.
+//
+// Store "books": book metadata + chapter text + quizzes (keyPath: id).
+// Store "audio": legacy. It held MP3s from the old in-browser neural TTS, which
+// crashed Safari and has been removed. The store is still created so existing
+// databases open cleanly, and purgeLegacyAudio() reclaims that space once.
 const DB_NAME = "aubibook-db";
 const DB_VERSION = 1;
 
@@ -35,10 +38,6 @@ function txDone(tx: IDBTransaction): Promise<void> {
   });
 }
 
-export function audioKey(bookId: string, chapterId: number): string {
-  return `${bookId}:${chapterId}`;
-}
-
 export async function getAllBooks(): Promise<Book[]> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
@@ -57,30 +56,16 @@ export async function saveBook(book: Book): Promise<void> {
 
 export async function deleteBook(bookId: string): Promise<void> {
   const db = await openDb();
-  // Remove the book record
   const tx = db.transaction("books", "readwrite");
   tx.objectStore("books").delete(bookId);
   await txDone(tx);
-  // Remove its audio blobs
-  const audioTx = db.transaction("audio", "readwrite");
-  const store = audioTx.objectStore("audio");
-  const range = IDBKeyRange.bound(`${bookId}:`, `${bookId}:￿`);
-  store.delete(range);
-  await txDone(audioTx);
 }
 
-export async function getAudio(bookId: string, chapterId: number): Promise<Blob | null> {
+/** Free the megabytes left behind by the removed neural-TTS experiment. */
+export async function purgeLegacyAudio(): Promise<void> {
   const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction("audio", "readonly").objectStore("audio").get(audioKey(bookId, chapterId));
-    req.onsuccess = () => resolve((req.result as Blob) ?? null);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-export async function saveAudio(bookId: string, chapterId: number, blob: Blob): Promise<void> {
-  const db = await openDb();
+  if (!db.objectStoreNames.contains("audio")) return;
   const tx = db.transaction("audio", "readwrite");
-  tx.objectStore("audio").put(blob, audioKey(bookId, chapterId));
+  tx.objectStore("audio").clear();
   await txDone(tx);
 }

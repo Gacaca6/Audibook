@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Chapter, QuizQuestion } from "../types";
 import { X, Check, AlertCircle, Award, Volume2, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import AubiMascot from "./AubiMascot";
+import AudiMascot from "./AudiMascot";
 
 interface QuizModalProps {
   chapter: Chapter;
@@ -157,7 +157,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
             {/* Question Text */}
             <div className="px-5 pt-6 pb-2 overflow-y-auto flex-1 flex flex-col gap-6">
               <div className="flex gap-4 items-center">
-                <AubiMascot
+                <AudiMascot
                   mood={isAnswerChecked ? (isCorrect ? "happy" : "sad") : "quizzing"}
                   className="w-20 h-20 shrink-0"
                 />
@@ -302,7 +302,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
             className="flex-1 flex flex-col justify-between p-6 text-center"
           >
             <div className="flex-1 flex flex-col items-center justify-center gap-6">
-              <AubiMascot mood="celebrating" className="w-48 h-48" />
+              <AudiMascot mood="celebrating" className="w-48 h-48" />
 
               <div>
                 <h3 className="font-display font-black text-slate-800 text-xl tracking-tight">

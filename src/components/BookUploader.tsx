@@ -1,7 +1,7 @@
 import { useState, useRef, DragEvent, ChangeEvent } from "react";
 import { Upload, FileText, CheckCircle2, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import AubiMascot from "./AubiMascot";
+import AudiMascot from "./AudiMascot";
 import { parseBookFile } from "../lib/parseBook";
 import { saveBook } from "../lib/db";
 import { ParseProgress } from "../types";
@@ -12,7 +12,7 @@ interface BookUploaderProps {
 }
 
 const STAGE_MESSAGES: Record<ParseProgress["stage"], string> = {
-  reading: "Aubi is adjusting her glasses to read your book... 🦉👓",
+  reading: "Audi is adjusting her glasses to read your book... 🦉👓",
   extracting: "Turning every single page of your book... 📖✨",
   chapters: "Splitting the story into cozy chapters... 🔖",
   quizzes: "Writing fun comprehension quizzes for you... 🧠🎯",
@@ -180,7 +180,7 @@ export default function BookUploader({ onUploadSuccess, className = "" }: BookUp
             className="bg-white border border-gray-200 rounded-[2.5rem] p-8 flex flex-col items-center text-center shadow-sm"
           >
             {/* Mascot reading state */}
-            <AubiMascot mood="quizzing" className="w-36 h-36 mb-4" />
+            <AudiMascot mood="quizzing" className="w-36 h-36 mb-4" />
 
             {/* Real parsing progress */}
             <div className="w-full max-w-xs bg-slate-100 h-2 rounded-full overflow-hidden relative mb-2 mt-2">
@@ -193,7 +193,7 @@ export default function BookUploader({ onUploadSuccess, className = "" }: BookUp
             <span className="font-mono text-[10px] text-slate-400 mb-4">{progress.percent}%</span>
 
             <h3 className="font-display font-black text-slate-800 text-lg tracking-tight">
-              Aubi's Library Workshop
+              Audi's Library Workshop
             </h3>
 
             {/* Stage message */}
