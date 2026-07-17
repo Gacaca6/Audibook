@@ -1,6 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Book, Chapter } from "../types";
-import { ChevronLeft, Play, Pause, RotateCcw, RotateCw, Check, HelpCircle, Mic2, X, AlertTriangle } from "lucide-react";
+import {
+  ChevronLeft,
+  Play,
+  Pause,
+  RotateCcw,
+  RotateCw,
+  Check,
+  HelpCircle,
+  Mic2,
+  X,
+  AlertTriangle,
+  Download,
+  CloudOff,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import AudiMascot from "./AudiMascot";
 import {
@@ -11,6 +24,8 @@ import {
   saveVoiceId,
   VoiceOption,
 } from "../lib/speech";
+import { downloadChapterAudio } from "../lib/librivox";
+import * as db from "../lib/db";
 
 interface AudiobookPlayerProps {
   book: Book;
@@ -18,6 +33,7 @@ interface AudiobookPlayerProps {
   onOpenQuiz: (chapter: Chapter) => void;
   completedQuizzes: string[]; // bookId-chapterId
   onUpdateXP: (xp: number, kind?: "listen" | "general") => void;
+  onUpdateBook: (book: Book) => void;
 }
 
 export default function AudiobookPlayer({
@@ -26,6 +42,7 @@ export default function AudiobookPlayer({
   onOpenQuiz,
   completedQuizzes,
   onUpdateXP,
+  onUpdateBook,
 }: AudiobookPlayerProps) {
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -34,26 +51,37 @@ export default function AudiobookPlayer({
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
-  // Read-along state
+  // Real-audio (LibriVox) state
+  const [audioSrc, setAudioSrc] = useState<string | null>(null);
+  const [audioFromDevice, setAudioFromDevice] = useState(false);
+  const [downloadPercent, setDownloadPercent] = useState<Record<number, number>>({});
+
+  // Read-along state (TTS chapters)
   const [chunks, setChunks] = useState<string[]>([]);
   const [activeChunk, setActiveChunk] = useState(0);
 
-  // Voice state
+  // Voice state (TTS chapters)
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
   const [voiceId, setVoiceId] = useState<string | null>(getSavedVoiceId());
   const [showVoicePicker, setShowVoicePicker] = useState(false);
 
   const currentChapter = book.chapters[activeChapterIndex] || book.chapters[0];
+  const isAudioChapter = !!currentChapter.audioUrl;
   const speechRef = useRef<SpeechReader | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const chunkRefs = useRef<Array<HTMLSpanElement | null>>([]);
-  const supported = SpeechReader.isSupported();
+  const bookRef = useRef(book);
+  bookRef.current = book;
+  const ttsSupported = SpeechReader.isSupported();
 
   const bookChapterKey = `${book.id}-${currentChapter.id}`;
   const isQuizCompleted = completedQuizzes.includes(bookChapterKey);
+  const isDownloading = downloadPercent[currentChapter.id] !== undefined;
 
   // Resolve the device's voices once (Safari populates these asynchronously)
   useEffect(() => {
+    if (!ttsSupported) return;
     let cancelled = false;
     loadVoices().then((list) => {
       if (cancelled) return;
@@ -63,69 +91,98 @@ export default function AudiobookPlayer({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ttsSupported]);
 
   const resolveVoice = useCallback(
     (list: SpeechSynthesisVoice[], id: string | null): SpeechSynthesisVoice | null => {
       if (list.length === 0) return null;
       const saved = id ? list.find((v) => v.voiceURI === id) : null;
       if (saved) return saved;
-      // No pick yet: use the best-ranked English voice on this device
       const best = listVoiceOptions(list)[0];
       return (best && list.find((v) => v.voiceURI === best.id)) || null;
     },
     []
   );
 
-  // Build the reader for the active chapter
+  // Set up the active chapter: real audio file, or the device-voice reader
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
     setActiveChunk(0);
     setError(null);
-    const estimated = currentChapter.duration || 30;
-    setDuration(estimated);
+    setDuration(currentChapter.duration || 30);
 
     speechRef.current?.dispose();
+    speechRef.current = null;
+    let objectUrl: string | null = null;
+    let cancelled = false;
 
-    if (!supported) {
-      setChunks([currentChapter.text]);
-      return;
+    if (isAudioChapter) {
+      // Prefer the offline copy; fall back to streaming from the archive
+      setAudioSrc(null);
+      setAudioFromDevice(false);
+      db.getAudio(book.id, currentChapter.id)
+        .then((blob) => {
+          if (cancelled) return;
+          if (blob) {
+            objectUrl = URL.createObjectURL(blob);
+            setAudioSrc(objectUrl);
+            setAudioFromDevice(true);
+          } else {
+            setAudioSrc(currentChapter.audioUrl!);
+            if (!navigator.onLine) {
+              setError("This chapter isn't downloaded yet — connect to the internet or download it for offline.");
+            }
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setAudioSrc(currentChapter.audioUrl!);
+        });
+      setChunks([]);
+    } else {
+      setAudioSrc(null);
+      if (!ttsSupported) {
+        setChunks([currentChapter.text]);
+        return;
+      }
+      const estimated = currentChapter.duration || 30;
+      const reader = new SpeechReader(currentChapter.text);
+      reader.rate = playbackSpeed;
+      reader.setVoice(resolveVoice(voices, voiceId));
+      reader.onProgress = (done, total) => {
+        setCurrentTime((done / total) * estimated);
+      };
+      reader.onChunkChange = (idx) => setActiveChunk(idx);
+      reader.onEnd = () => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setActiveChunk(0);
+        onUpdateXP(10, "listen");
+      };
+      reader.onError = (message) => {
+        setIsPlaying(false);
+        setError(message);
+      };
+      speechRef.current = reader;
+      setChunks(reader.getChunks());
+      chunkRefs.current = [];
     }
 
-    const reader = new SpeechReader(currentChapter.text);
-    reader.rate = playbackSpeed;
-    reader.setVoice(resolveVoice(voices, voiceId));
-    reader.onProgress = (done, total) => {
-      setCurrentTime((done / total) * estimated);
-    };
-    reader.onChunkChange = (idx) => setActiveChunk(idx);
-    reader.onEnd = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-      setActiveChunk(0);
-      onUpdateXP(10, "listen");
-    };
-    reader.onError = (message) => {
-      setIsPlaying(false);
-      setError(message);
-    };
-    speechRef.current = reader;
-    setChunks(reader.getChunks());
-    chunkRefs.current = [];
-
     return () => {
-      reader.dispose();
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      audioRef.current?.pause();
+      speechRef.current?.dispose();
     };
-    // playbackSpeed/voice changes are applied via their own effects below
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChapterIndex, book.id, voices, voiceId, supported]);
+  }, [activeChapterIndex, book.id, voices, voiceId, currentChapter.downloaded]);
 
-  // Stop narration if the app is backgrounded or unmounted
+  // TTS pauses when the app is backgrounded (the engine dies anyway);
+  // real audio keeps playing — that's the point of an audiobook.
   useEffect(() => {
     const onHide = () => {
-      if (document.visibilityState === "hidden") {
-        speechRef.current?.pause();
+      if (document.visibilityState === "hidden" && speechRef.current) {
+        speechRef.current.pause();
         setIsPlaying(false);
       }
     };
@@ -133,36 +190,126 @@ export default function AudiobookPlayer({
     return () => document.removeEventListener("visibilitychange", onHide);
   }, []);
 
-  // Keep the highlighted sentence in view while listening
+  // Keep the highlighted sentence in view while listening (TTS mode)
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || isAudioChapter) return;
     chunkRefs.current[activeChunk]?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [activeChunk, isPlaying]);
+  }, [activeChunk, isPlaying, isAudioChapter]);
+
+  // Lock-screen / notification media controls for real audio
+  const setupMediaSession = useCallback(() => {
+    if (!("mediaSession" in navigator)) return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentChapter.title,
+        artist: book.author,
+        album: book.title,
+        artwork: book.coverUrl ? [{ src: book.coverUrl, sizes: "180x180", type: "image/jpeg" }] : [],
+      });
+      navigator.mediaSession.setActionHandler("play", () => audioRef.current?.play());
+      navigator.mediaSession.setActionHandler("pause", () => audioRef.current?.pause());
+      navigator.mediaSession.setActionHandler("seekbackward", () => {
+        if (audioRef.current) audioRef.current.currentTime -= 15;
+      });
+      navigator.mediaSession.setActionHandler("seekforward", () => {
+        if (audioRef.current) audioRef.current.currentTime += 15;
+      });
+    } catch {
+      // Media session is a nice-to-have
+    }
+  }, [book.author, book.title, book.coverUrl, currentChapter.title]);
 
   const togglePlay = () => {
-    if (!supported) {
-      setError("This browser can't narrate. Try Safari or Chrome.");
-      return;
-    }
-    if (isPlaying) {
-      speechRef.current?.pause();
-      setIsPlaying(false);
+    setError(null);
+    if (isAudioChapter) {
+      const audio = audioRef.current;
+      if (!audio) return;
+      if (isPlaying) {
+        audio.pause();
+        setIsPlaying(false);
+      } else {
+        audio.playbackRate = playbackSpeed;
+        audio
+          .play()
+          .then(() => {
+            setIsPlaying(true);
+            setupMediaSession();
+          })
+          .catch(() => {
+            setError(
+              navigator.onLine
+                ? "Couldn't start this chapter. Try downloading it, or check the next chapter."
+                : "You're offline and this chapter isn't downloaded yet."
+            );
+          });
+      }
     } else {
-      setError(null);
-      speechRef.current?.play(); // called straight from the tap: iOS requires this
-      setIsPlaying(true);
+      if (!ttsSupported) {
+        setError("This browser can't narrate. Try Safari or Chrome.");
+        return;
+      }
+      if (isPlaying) {
+        speechRef.current?.pause();
+        setIsPlaying(false);
+      } else {
+        speechRef.current?.play(); // called straight from the tap: iOS requires this
+        setIsPlaying(true);
+      }
     }
   };
 
-  const skip = (chunksToMove: number) => {
-    speechRef.current?.skipChunks(chunksToMove);
+  const skip = (direction: 1 | -1) => {
+    if (isAudioChapter) {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.currentTime = Math.max(0, Math.min(audio.duration || duration, audio.currentTime + direction * 15));
+        setCurrentTime(audio.currentTime);
+      }
+    } else {
+      speechRef.current?.skipChunks(direction);
+    }
   };
 
   const handleSpeedChange = () => {
     const speeds = [0.8, 1, 1.25, 1.5];
     const nextSpeed = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
     setPlaybackSpeed(nextSpeed);
+    if (audioRef.current) audioRef.current.playbackRate = nextSpeed;
     speechRef.current?.setRate(nextSpeed);
+  };
+
+  const handleSeek = (ratio: number) => {
+    if (!isAudioChapter || !audioRef.current) return;
+    const target = ratio * (audioRef.current.duration || duration);
+    audioRef.current.currentTime = target;
+    setCurrentTime(target);
+  };
+
+  const handleDownload = async (chapter: Chapter) => {
+    if (downloadPercent[chapter.id] !== undefined || chapter.downloaded) return;
+    setDownloadPercent((prev) => ({ ...prev, [chapter.id]: 0 }));
+    try {
+      const blob = await downloadChapterAudio(chapter, (percent) =>
+        setDownloadPercent((prev) => ({ ...prev, [chapter.id]: percent }))
+      );
+      await db.saveAudio(book.id, chapter.id, blob);
+      const updated: Book = {
+        ...bookRef.current,
+        chapters: bookRef.current.chapters.map((ch) =>
+          ch.id === chapter.id ? { ...ch, downloaded: true } : ch
+        ),
+      };
+      onUpdateBook(updated);
+      onUpdateXP(15);
+    } catch (err: any) {
+      setError(err.message || "Download failed. Please try again.");
+    } finally {
+      setDownloadPercent((prev) => {
+        const next = { ...prev };
+        delete next[chapter.id];
+        return next;
+      });
+    }
   };
 
   const handlePickVoice = (option: VoiceOption) => {
@@ -177,6 +324,7 @@ export default function AudiobookPlayer({
   };
 
   const formatTime = (time: number) => {
+    if (!isFinite(time)) return "0:00";
     const mins = Math.floor(time / 60);
     const secs = Math.floor(time % 60);
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
@@ -188,6 +336,40 @@ export default function AudiobookPlayer({
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F0F2F5] pb-28" id="player-screen">
+      {/* Real audio element (LibriVox chapters) */}
+      {isAudioChapter && audioSrc && (
+        <audio
+          ref={audioRef}
+          src={audioSrc}
+          preload="metadata"
+          onTimeUpdate={() => audioRef.current && setCurrentTime(audioRef.current.currentTime)}
+          onLoadedMetadata={() => {
+            if (audioRef.current && isFinite(audioRef.current.duration)) {
+              setDuration(audioRef.current.duration);
+            }
+          }}
+          onEnded={() => {
+            setIsPlaying(false);
+            setCurrentTime(0);
+            onUpdateXP(10, "listen");
+            // Roll into the next chapter automatically
+            if (activeChapterIndex < book.chapters.length - 1) {
+              setActiveChapterIndex(activeChapterIndex + 1);
+            }
+          }}
+          onError={() => {
+            if (audioSrc && !audioFromDevice) {
+              setError(
+                navigator.onLine
+                  ? "This audio file couldn't load. Try another chapter."
+                  : "You're offline and this chapter isn't downloaded."
+              );
+            }
+            setIsPlaying(false);
+          }}
+        />
+      )}
+
       {/* Header (iOS style) */}
       <div className="bg-white border-b border-gray-100 pt-12 pb-4 px-4 flex items-center justify-between sticky top-0 z-20 shadow-xs">
         <button
@@ -197,7 +379,7 @@ export default function AudiobookPlayer({
           <ChevronLeft className="w-4 h-4" /> Back
         </button>
 
-        <div className="text-center max-w-[200px]">
+        <div className="text-center max-w-[190px]">
           <h4 className="font-display font-black text-slate-800 text-xs tracking-tight line-clamp-1">
             {book.title}
           </h4>
@@ -206,34 +388,115 @@ export default function AudiobookPlayer({
           </p>
         </div>
 
-        {/* Voice picker */}
-        <button
-          onClick={() => setShowVoicePicker(true)}
-          disabled={voiceOptions.length === 0}
-          className="p-2 rounded-xl border border-gray-200 bg-white text-[#1CB0F6] active:scale-95 transition-all disabled:opacity-40"
-          title="Choose narrator voice"
-        >
-          <Mic2 className="w-4 h-4" />
-        </button>
+        {/* Context action: download (audio) or voice picker (TTS) */}
+        {isAudioChapter ? (
+          <button
+            onClick={() => handleDownload(currentChapter)}
+            disabled={currentChapter.downloaded || isDownloading}
+            className={`p-2 rounded-xl border transition-all ${
+              currentChapter.downloaded
+                ? "bg-[#58CC02]/10 border-[#58CC02]/20 text-[#58CC02]"
+                : "bg-white border-gray-200 text-[#1CB0F6] active:scale-95"
+            }`}
+            title={currentChapter.downloaded ? "Saved for offline" : "Download for offline"}
+          >
+            {isDownloading ? (
+              <span className="w-4 h-4 border-2 border-[#1CB0F6] border-t-transparent rounded-full animate-spin block" />
+            ) : currentChapter.downloaded ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowVoicePicker(true)}
+            disabled={voiceOptions.length === 0}
+            className="p-2 rounded-xl border border-gray-200 bg-white text-[#1CB0F6] active:scale-95 transition-all disabled:opacity-40"
+            title="Choose narrator voice"
+          >
+            <Mic2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Main Scrollable Shell */}
       <div className="flex-1 overflow-y-auto px-5 pt-4 pb-28 flex flex-col gap-6">
-        {/* Animated Mascot Visualizer Card */}
+        {/* Cover / Mascot Card */}
         <div className="bg-white border border-gray-200 rounded-[2rem] p-5 shadow-sm text-center flex flex-col items-center">
-          <AudiMascot mood={isPlaying ? "listening" : "happy"} className="w-40 h-40" />
+          {book.coverUrl ? (
+            <div className="w-36 h-36 rounded-3xl overflow-hidden shadow-md bg-gradient-to-br from-green-300 to-[#58CC02] flex items-center justify-center">
+              <img
+                src={book.coverUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
+          ) : (
+            <AudiMascot mood={isPlaying ? "listening" : "happy"} className="w-40 h-40" />
+          )}
 
-          <button
-            onClick={() => setShowVoicePicker(true)}
-            disabled={voiceOptions.length === 0}
-            className="mt-2.5 bg-[#E1F5FE] border border-[#1CB0F6]/20 text-[#1CB0F6] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider active:scale-95 transition-all disabled:opacity-60"
-          >
-            🎙 {activeVoiceName} • Tap to change
-          </button>
+          {isAudioChapter ? (
+            <div className="mt-3 flex flex-col items-center gap-1.5">
+              <span className="bg-[#E1F5FE] border border-[#1CB0F6]/20 text-[#1CB0F6] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                🎙 Human Narrated {book.runtime ? `• ${book.runtime}` : ""}
+              </span>
+              {audioFromDevice ? (
+                <span className="bg-[#58CC02]/10 border border-[#58CC02]/20 text-[#58CC02] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                  ✓ Playing from your device — works offline
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold text-slate-400">
+                  Streaming{currentChapter.audioSizeMB ? ` • ${currentChapter.audioSizeMB}MB to download` : ""}
+                </span>
+              )}
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowVoicePicker(true)}
+                disabled={voiceOptions.length === 0}
+                className="mt-2.5 bg-[#E1F5FE] border border-[#1CB0F6]/20 text-[#1CB0F6] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider active:scale-95 transition-all disabled:opacity-60"
+              >
+                🎙 {activeVoiceName} • Tap to change
+              </button>
+              <p className="font-sans text-[10px] text-slate-400 font-bold mt-2 max-w-[240px]">
+                Narrated instantly by your device — free, private, and works offline.
+              </p>
+            </>
+          )}
 
-          <p className="font-sans text-[10px] text-slate-400 font-bold mt-2 max-w-[240px]">
-            Narrated instantly by your device — free, private, and works offline.
-          </p>
+          {/* Download CTA for streaming chapters */}
+          {isAudioChapter && !currentChapter.downloaded && (
+            <div className="w-full mt-4">
+              {isDownloading ? (
+                <div className="bg-[#E1F5FE]/60 border border-[#1CB0F6]/20 rounded-2xl p-3.5 text-left">
+                  <span className="font-sans font-black text-[#1CB0F6] text-[11px] uppercase tracking-wide">
+                    Saving for offline... {downloadPercent[currentChapter.id] || 0}%
+                  </span>
+                  <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-[#1CB0F6]/10 mt-2">
+                    <motion.div
+                      className="h-full bg-[#1CB0F6] rounded-full"
+                      animate={{ width: `${downloadPercent[currentChapter.id] || 0}%` }}
+                      transition={{ ease: "easeOut", duration: 0.3 }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleDownload(currentChapter)}
+                  className="w-full py-3 bg-[#1CB0F6] border-b-4 border-[#1899d6] active:border-b-0 active:translate-y-[4px] text-white rounded-2xl font-sans font-black text-xs tracking-wide transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Download className="w-4 h-4" />
+                  Download this chapter for offline
+                  {currentChapter.audioSizeMB ? ` (${currentChapter.audioSizeMB}MB)` : ""}
+                </button>
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="mt-3 w-full bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-start gap-2 text-left">
@@ -259,51 +522,66 @@ export default function AudiobookPlayer({
                     : "bg-white border-gray-200 text-slate-600 active:bg-slate-50 font-bold"
                 }`}
               >
-                Ch {ch.id}: {ch.title.length > 15 ? ch.title.slice(0, 15) + "..." : ch.title}
+                {ch.downloaded && "✓ "}
+                {ch.title.length > 20 ? ch.title.slice(0, 20) + "..." : ch.title}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Summary Take-away Box */}
-        <div className="bg-[#E1F5FE]/60 border border-[#1CB0F6]/20 rounded-2xl p-4 flex gap-3 items-start relative overflow-hidden">
-          <div className="bg-[#1CB0F6] text-white p-2 rounded-xl text-xs font-black">💡</div>
-          <div>
-            <h5 className="font-display font-black text-[#1CB0F6] text-xs uppercase tracking-wider">
-              Audi's Summary Key
-            </h5>
-            <p className="font-sans text-xs text-slate-700 font-bold mt-1 leading-relaxed">
-              "{currentChapter.summary}"
-            </p>
+        {/* Summary / About box */}
+        {(currentChapter.summary || book.description) && (
+          <div className="bg-[#E1F5FE]/60 border border-[#1CB0F6]/20 rounded-2xl p-4 flex gap-3 items-start relative overflow-hidden">
+            <div className="bg-[#1CB0F6] text-white p-2 rounded-xl text-xs font-black">💡</div>
+            <div>
+              <h5 className="font-display font-black text-[#1CB0F6] text-xs uppercase tracking-wider">
+                {currentChapter.summary ? "Audi's Summary Key" : "About this audiobook"}
+              </h5>
+              <p className="font-sans text-xs text-slate-700 font-bold mt-1 leading-relaxed">
+                {currentChapter.summary || book.description}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Chapter Read-Along Text Block (tap any sentence to jump there) */}
-        <div className="flex flex-col gap-2.5">
-          <span className="font-sans font-black text-[10px] text-gray-400 tracking-wider uppercase px-1">
-            READ ALONG — TAP ANY LINE TO JUMP
-          </span>
-          <div className="bg-white border border-gray-200 rounded-[2rem] p-5 shadow-sm min-h-[150px] max-h-[400px] overflow-y-auto">
-            <p className="font-sans text-sm leading-relaxed text-left font-bold">
-              {chunks.map((chunk, idx) => (
-                <span
-                  key={idx}
-                  ref={(el) => {
-                    chunkRefs.current[idx] = el;
-                  }}
-                  onClick={() => jumpToChunk(idx)}
-                  className={`cursor-pointer transition-colors rounded px-0.5 ${
-                    idx === activeChunk
-                      ? "bg-[#58CC02]/20 text-slate-900"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {chunk}{" "}
-                </span>
-              ))}
+        {/* Read-Along (TTS chapters only — real audiobooks have no text) */}
+        {!isAudioChapter && (
+          <div className="flex flex-col gap-2.5">
+            <span className="font-sans font-black text-[10px] text-gray-400 tracking-wider uppercase px-1">
+              READ ALONG — TAP ANY LINE TO JUMP
+            </span>
+            <div className="bg-white border border-gray-200 rounded-[2rem] p-5 shadow-sm min-h-[150px] max-h-[400px] overflow-y-auto">
+              <p className="font-sans text-sm leading-relaxed text-left font-bold">
+                {chunks.map((chunk, idx) => (
+                  <span
+                    key={idx}
+                    ref={(el) => {
+                      chunkRefs.current[idx] = el;
+                    }}
+                    onClick={() => jumpToChunk(idx)}
+                    className={`cursor-pointer transition-colors rounded px-0.5 ${
+                      idx === activeChunk
+                        ? "bg-[#58CC02]/20 text-slate-900"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {chunk}{" "}
+                  </span>
+                ))}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Offline hint for streaming books */}
+        {isAudioChapter && !currentChapter.downloaded && !isDownloading && (
+          <div className="flex items-center gap-2 px-2">
+            <CloudOff className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+            <p className="font-sans text-[10px] text-slate-400 font-bold">
+              Chapters play over the internet until you download them. Downloaded chapters (✓) work anywhere.
             </p>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Floating Bottom Media Bar */}
@@ -311,14 +589,23 @@ export default function AudiobookPlayer({
         <div className="flex flex-col gap-1">
           <div className="flex justify-between items-center text-[10px] font-black text-gray-400 font-mono">
             <span>{formatTime(currentTime)}</span>
-            <span>~{formatTime(duration)}</span>
+            <span>
+              {isAudioChapter ? "" : "~"}
+              {formatTime(duration)}
+            </span>
           </div>
 
-          <div className="w-full h-2 bg-gray-100 rounded-full relative overflow-hidden">
+          <div
+            className={`w-full h-2 bg-gray-100 rounded-full relative overflow-hidden ${isAudioChapter ? "cursor-pointer" : ""}`}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              handleSeek((e.clientX - rect.left) / rect.width);
+            }}
+          >
             <motion.div
               className="h-full bg-[#58CC02] rounded-full"
               animate={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
-              transition={{ ease: "linear", duration: 0.3 }}
+              transition={{ ease: "linear", duration: 0.2 }}
             />
           </div>
         </div>
@@ -328,13 +615,14 @@ export default function AudiobookPlayer({
             onClick={handleSpeedChange}
             className="font-sans font-black text-xs text-gray-500 border border-gray-200 rounded-xl px-3 py-2 bg-white active:bg-slate-50 active:scale-95 transition-all"
           >
-            {playbackSpeed}x Speed
+            {playbackSpeed}x
           </button>
 
           <div className="flex items-center gap-4">
             <button
               onClick={() => skip(-1)}
               className="p-3 text-slate-600 bg-gray-100 rounded-full active:scale-90 transition-all border border-gray-200/50"
+              title={isAudioChapter ? "Back 15 seconds" : "Previous sentence"}
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -351,6 +639,7 @@ export default function AudiobookPlayer({
             <button
               onClick={() => skip(1)}
               className="p-3 text-slate-600 bg-gray-100 rounded-full active:scale-90 transition-all border border-gray-200/50"
+              title={isAudioChapter ? "Forward 15 seconds" : "Next sentence"}
             >
               <RotateCw className="w-4 h-4" />
             </button>
@@ -367,18 +656,18 @@ export default function AudiobookPlayer({
           >
             {isQuizCompleted ? (
               <>
-                <Check className="w-4 h-4" /> Quiz Clear
+                <Check className="w-4 h-4" /> Done
               </>
             ) : (
               <>
-                <HelpCircle className="w-4 h-4" /> Take Quiz
+                <HelpCircle className="w-4 h-4" /> Quiz
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Voice Picker Sheet */}
+      {/* Voice Picker Sheet (TTS books only) */}
       <AnimatePresence>
         {showVoicePicker && (
           <motion.div

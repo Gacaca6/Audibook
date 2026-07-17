@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Book, UserProfile } from "../types";
-import { BookOpen, Trophy, Flame, Sparkles, CheckCircle, Wifi, WifiOff, Trash2, Headphones } from "lucide-react";
+import { BookOpen, Trophy, Flame, Sparkles, CheckCircle, Wifi, WifiOff, Trash2, Headphones, Compass, Mic } from "lucide-react";
 import { motion } from "motion/react";
 import BookUploader from "./BookUploader";
 import AudiMascot from "./AudiMascot";
+import Discover from "./Discover";
 
 interface DashboardProps {
   books: Book[];
@@ -11,18 +12,29 @@ interface DashboardProps {
   selectedBook: Book | null;
   onSelectBook: (book: Book) => void;
   onRefreshBooks: () => void;
+  onBookFetched: (book: Book) => void;
   onDeleteBook: (id: string) => void;
   onUpdateXP: (xpGained: number) => void;
 }
+
+type Tab = "discover" | "books" | "achievements";
+
+const TABS: Array<{ id: Tab; label: string; icon: typeof Compass }> = [
+  { id: "discover", label: "Discover", icon: Compass },
+  { id: "books", label: "My Books", icon: BookOpen },
+  { id: "achievements", label: "Trophies", icon: Trophy },
+];
 
 export default function Dashboard({
   books,
   userProfile,
   onSelectBook,
   onRefreshBooks,
+  onBookFetched,
   onDeleteBook,
 }: DashboardProps) {
-  const [activeTab, setActiveTab] = useState<"books" | "achievements">("books");
+  // Discovery is the front door; the shelf is one tap away
+  const [activeTab, setActiveTab] = useState<Tab>("discover");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Monitor network status to show cute status badges
@@ -39,8 +51,13 @@ export default function Dashboard({
     };
   }, []);
 
+  const handleBookFetched = (book: Book) => {
+    onBookFetched(book);
+    setActiveTab("books"); // show it landing on the shelf
+  };
+
   return (
-    <div className="flex flex-col gap-5 px-4 pb-24" id="dashboard-container">
+    <div className="flex flex-col gap-5 px-4 pb-32" id="dashboard-container">
       {/* Gamified Header Stats (Duolingo Style) */}
       <div className="bg-white border border-gray-200 rounded-[2rem] p-4 flex justify-between items-center shadow-sm relative">
         <div className="flex items-center gap-2">
@@ -79,29 +96,27 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Segmented Control / Tabs */}
-      <div className="bg-white p-1.5 rounded-3xl flex gap-2 border border-gray-200 shadow-sm">
-        <button
-          onClick={() => setActiveTab("books")}
-          className={`flex-1 py-3 text-center rounded-2xl font-sans font-black text-xs transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === "books" ? "bg-[#E1F5FE] text-[#1CB0F6] border-b-4 border-[#1CB0F6]/20" : "text-gray-400 hover:bg-gray-50 font-bold"
-          }`}
-        >
-          <BookOpen className="w-4 h-4" /> My Books
-        </button>
-        <button
-          onClick={() => setActiveTab("achievements")}
-          className={`flex-1 py-3 text-center rounded-2xl font-sans font-black text-xs transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === "achievements" ? "bg-[#E1F5FE] text-[#1CB0F6] border-b-4 border-[#1CB0F6]/20" : "text-gray-400 hover:bg-gray-50 font-bold"
-          }`}
-        >
-          <Trophy className="w-4 h-4" /> Trophies
-        </button>
-      </div>
-
       {/* Main Content Area */}
       <div className="min-h-[300px]">
-        {activeTab === "books" ? (
+        {activeTab === "discover" ? (
+          isOnline ? (
+            <Discover shelfBookIds={books.map((b) => b.id)} onBookAdded={handleBookFetched} />
+          ) : (
+            <div className="bg-amber-50 border-2 border-amber-200 border-dashed rounded-[2rem] p-6 text-center">
+              <WifiOff className="w-8 h-8 mx-auto text-amber-500 mb-2" />
+              <h4 className="font-display font-black text-sm text-amber-800">You're Offline</h4>
+              <p className="font-sans text-xs text-amber-600 max-w-xs mx-auto mt-1 leading-relaxed font-bold">
+                Searching the free library needs internet. Your saved books still work — check My Books!
+              </p>
+              <button
+                onClick={() => setActiveTab("books")}
+                className="mt-4 px-4 py-2.5 bg-[#58CC02] border-b-4 border-[#46A302] active:border-b-0 active:translate-y-[4px] text-white rounded-xl font-sans font-black text-xs transition-all"
+              >
+                Go to My Books
+              </button>
+            </div>
+          )
+        ) : activeTab === "books" ? (
           <div className="flex flex-col gap-4">
             {/* Drag & Drop uploader — works fully offline, books never leave the device */}
             <BookUploader onUploadSuccess={onRefreshBooks} />
@@ -117,13 +132,14 @@ export default function Dashboard({
                   <BookOpen className="w-10 h-10 mx-auto text-slate-300 mb-3" />
                   <p className="font-display font-black text-sm text-slate-500">No books found in your shelf!</p>
                   <p className="font-sans text-xs text-slate-400 mt-1 max-w-xs mx-auto font-bold">
-                    Add an EPUB, PDF, or text file above to let Audi narrate and build quizzes for you!
+                    Search the free library in Discover, or add your own EPUB, PDF, or text file above!
                   </p>
                 </div>
               ) : (
                 books.map((book) => {
                   const isProcessing = book.status === "processing";
                   const isError = book.status === "error";
+                  const isRealAudio = book.source === "librivox";
 
                   return (
                     <motion.div
@@ -145,9 +161,9 @@ export default function Dashboard({
 
                       <div className="flex justify-between items-start">
                         <div className="flex gap-3">
-                          {/* Book cover graphic (Duolingo Style colorful avatar) */}
+                          {/* Book cover: real artwork for library books, colorful avatar otherwise */}
                           <div
-                            className={`w-12 h-16 rounded-xl flex flex-col items-center justify-center text-white font-black relative shrink-0 shadow-sm ${
+                            className={`w-12 h-16 rounded-xl flex flex-col items-center justify-center text-white font-black relative shrink-0 shadow-sm overflow-hidden ${
                               isProcessing
                                 ? "bg-gray-200"
                                 : isError
@@ -161,6 +177,17 @@ export default function Dashboard({
                             <span className="font-mono text-[9px] uppercase tracking-wider text-white">
                               {book.chaptersCount || "..."} Ch
                             </span>
+                            {book.coverUrl && (
+                              <img
+                                src={book.coverUrl}
+                                alt=""
+                                loading="lazy"
+                                className="absolute inset-0 w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            )}
                           </div>
 
                           <div>
@@ -181,9 +208,16 @@ export default function Dashboard({
                                 </span>
                               ) : (
                                 <>
-                                  <span className="text-slate-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-lg">
-                                    {book.totalWords} words
-                                  </span>
+                                  {isRealAudio ? (
+                                    <span className="text-[#1CB0F6] bg-[#E1F5FE] border border-[#1CB0F6]/20 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                      <Mic className="w-3 h-3" /> Human narrated
+                                      {book.runtime ? ` • ${book.runtime}` : ""}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-lg">
+                                      {book.totalWords} words
+                                    </span>
+                                  )}
                                   <span className="text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-lg">
                                     +{book.xpReward} XP Gift
                                   </span>
@@ -279,6 +313,31 @@ export default function Dashboard({
           </div>
         )}
       </div>
+
+      {/* Fixed Bottom Tab Bar (Duolingo style) */}
+      <nav className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 z-30 pb-safe">
+        <div className="max-w-[412px] mx-auto flex">
+          {TABS.map(({ id, label, icon: Icon }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex-1 flex flex-col items-center gap-1 pt-3 pb-5 transition-colors ${
+                  active ? "text-[#58CC02]" : "text-gray-400"
+                }`}
+              >
+                <span
+                  className={`px-4 py-1 rounded-2xl transition-colors ${active ? "bg-[#58CC02]/10" : ""}`}
+                >
+                  <Icon className={`w-5 h-5 ${active ? "stroke-[2.5]" : ""}`} />
+                </span>
+                <span className="font-sans font-black text-[10px] tracking-wide">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

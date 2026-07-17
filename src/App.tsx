@@ -103,8 +103,6 @@ export default function App() {
   useEffect(() => {
     fetchBooks();
     checkStreakOnLaunch();
-    // Reclaim space from the removed in-browser TTS experiment
-    db.purgeLegacyAudio().catch(() => {});
   }, []);
 
   // Hand off from the static splash (index.html) once the library is ready,
@@ -234,6 +232,23 @@ export default function App() {
     handleUpdateXP(25, "add-book");
   };
 
+  // An audiobook fetched from the free library (already saved to IndexedDB)
+  const handleBookFetched = (book: Book) => {
+    setBooks((prev) => [book, ...prev.filter((b) => b.id !== book.id)]);
+    handleUpdateXP(25, "add-book");
+  };
+
+  // Persist chapter updates (e.g. a chapter downloaded for offline) from the player
+  const handleUpdateBook = async (updated: Book) => {
+    setBooks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+    setSelectedBook((prev) => (prev?.id === updated.id ? updated : prev));
+    try {
+      await db.saveBook(updated);
+    } catch (err) {
+      console.error("Failed to persist book update:", err);
+    }
+  };
+
   // Select audiobook to listen
   const handleSelectBook = (book: Book) => {
     setSelectedBook(book);
@@ -323,14 +338,15 @@ export default function App() {
               <h4 className="font-sans font-black text-slate-700 text-sm">Warming up vocal cords...</h4>
             </div>
           ) : (
-            <AnimatePresence mode="wait">
+            /* Entrance-only animations: navigation must never wait on an exit
+               animation (throttled rAF in background tabs can stall it) */
+            <>
               {selectedBook ? (
                 /* 1. AUDIOBOOK PLAYER SCREEN */
                 <motion.div
                   key="player"
                   initial={{ opacity: 0, x: 50 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -50 }}
                   className="flex-1 flex flex-col h-full bg-[#F0F2F5]"
                 >
                   <AudiobookPlayer
@@ -339,6 +355,7 @@ export default function App() {
                     onOpenQuiz={(ch) => setActiveQuizChapter(ch)}
                     completedQuizzes={userProfile.completedQuizzes}
                     onUpdateXP={handleUpdateXP}
+                    onUpdateBook={handleUpdateBook}
                   />
                 </motion.div>
               ) : (
@@ -347,7 +364,6 @@ export default function App() {
                   key="dashboard"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
                   className="flex-1 pt-4 bg-[#F0F2F5]"
                 >
                   <Dashboard
@@ -356,12 +372,13 @@ export default function App() {
                     selectedBook={selectedBook}
                     onSelectBook={handleSelectBook}
                     onRefreshBooks={handleBookAdded}
+                    onBookFetched={handleBookFetched}
                     onDeleteBook={handleDeleteBook}
                     onUpdateXP={handleUpdateXP}
                   />
                 </motion.div>
               )}
-            </AnimatePresence>
+            </>
           )}
         </div>
 

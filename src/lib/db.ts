@@ -3,9 +3,8 @@ import { Book } from "../types";
 // Tiny promise wrapper around IndexedDB.
 //
 // Store "books": book metadata + chapter text + quizzes (keyPath: id).
-// Store "audio": legacy. It held MP3s from the old in-browser neural TTS, which
-// crashed Safari and has been removed. The store is still created so existing
-// databases open cleanly, and purgeLegacyAudio() reclaims that space once.
+// Store "audio": downloaded audiobook MP3s for offline listening,
+//                keyed `${bookId}:${chapterId}`.
 const DB_NAME = "aubibook-db";
 const DB_VERSION = 1;
 
@@ -59,13 +58,28 @@ export async function deleteBook(bookId: string): Promise<void> {
   const tx = db.transaction("books", "readwrite");
   tx.objectStore("books").delete(bookId);
   await txDone(tx);
+  // Remove any downloaded chapter audio along with the book
+  const audioTx = db.transaction("audio", "readwrite");
+  audioTx.objectStore("audio").delete(IDBKeyRange.bound(`${bookId}:`, `${bookId}:￿`));
+  await txDone(audioTx);
 }
 
-/** Free the megabytes left behind by the removed neural-TTS experiment. */
-export async function purgeLegacyAudio(): Promise<void> {
+export function audioKey(bookId: string, chapterId: number): string {
+  return `${bookId}:${chapterId}`;
+}
+
+export async function getAudio(bookId: string, chapterId: number): Promise<Blob | null> {
   const db = await openDb();
-  if (!db.objectStoreNames.contains("audio")) return;
+  return new Promise((resolve, reject) => {
+    const req = db.transaction("audio", "readonly").objectStore("audio").get(audioKey(bookId, chapterId));
+    req.onsuccess = () => resolve((req.result as Blob) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function saveAudio(bookId: string, chapterId: number, blob: Blob): Promise<void> {
+  const db = await openDb();
   const tx = db.transaction("audio", "readwrite");
-  tx.objectStore("audio").clear();
+  tx.objectStore("audio").put(blob, audioKey(bookId, chapterId));
   await txDone(tx);
 }

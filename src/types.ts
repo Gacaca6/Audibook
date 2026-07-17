@@ -8,11 +8,19 @@ export interface QuizQuestion {
 export interface Chapter {
   id: number;
   title: string;
-  text: string;
-  duration: number; // estimated seconds at ~150 wpm narration
+  text: string; // chapter text for TTS narration + read-along ("" for real audiobooks)
+  duration: number; // seconds (estimated for TTS, real for audio files)
   summary: string; // bite-sized key take-away
   quiz: QuizQuestion[];
+  /** Real narrated MP3 (LibriVox/archive.org). When set, the chapter streams
+      this instead of using the device voice. */
+  audioUrl?: string;
+  audioSizeMB?: number;
+  /** MP3 blob saved to IndexedDB for offline listening. */
+  downloaded?: boolean;
 }
+
+export type BookSource = "upload" | "librivox";
 
 export interface Book {
   id: string;
@@ -25,6 +33,10 @@ export interface Book {
   status: "processing" | "ready" | "error";
   chapters: Chapter[];
   xpReward: number;
+  source?: BookSource; // undefined on older records = "upload"
+  coverUrl?: string;
+  description?: string;
+  runtime?: string; // e.g. "10:23:00" for real audiobooks
 }
 
 export interface Achievement {
