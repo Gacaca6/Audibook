@@ -116,7 +116,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col pt-12" id="quiz-modal-view">
+    <div className="fixed inset-0 bg-white z-50 flex flex-col pt-safe-header" id="quiz-modal-view">
       {/* Quiz Progress Header (iOS/Duolingo style) */}
       <div className="px-5 py-4 flex items-center justify-between gap-4 border-b border-gray-100">
         <button

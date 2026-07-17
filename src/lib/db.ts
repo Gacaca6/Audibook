@@ -83,3 +83,10 @@ export async function saveAudio(bookId: string, chapterId: number, blob: Blob): 
   tx.objectStore("audio").put(blob, audioKey(bookId, chapterId));
   await txDone(tx);
 }
+
+export async function deleteAudio(bookId: string, chapterId: number): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction("audio", "readwrite");
+  tx.objectStore("audio").delete(audioKey(bookId, chapterId));
+  await txDone(tx);
+}

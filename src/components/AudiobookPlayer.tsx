@@ -25,6 +25,7 @@ import {
   VoiceOption,
 } from "../lib/speech";
 import { downloadChapterAudio } from "../lib/librivox";
+import { hasSpaceFor, isQuotaError, STORAGE_FULL_MESSAGE } from "../lib/storage";
 import * as db from "../lib/db";
 
 interface AudiobookPlayerProps {
@@ -73,6 +74,14 @@ export default function AudiobookPlayer({
   const chunkRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const bookRef = useRef(book);
   bookRef.current = book;
+  const indexRef = useRef(activeChapterIndex);
+  indexRef.current = activeChapterIndex;
+  // When a chapter ends (or lock-screen next is tapped), the next one should
+  // start playing on its own — including with the screen off.
+  const autoPlayNextRef = useRef(false);
+  // Downloads run one at a time; parallel multi-MB fetches spike phone memory.
+  const dlQueueRef = useRef<Chapter[]>([]);
+  const dlActiveRef = useRef(false);
   const ttsSupported = SpeechReader.isSupported();
 
   const bookChapterKey = `${book.id}-${currentChapter.id}`;
@@ -104,78 +113,94 @@ export default function AudiobookPlayer({
     []
   );
 
-  // Set up the active chapter: real audio file, or the device-voice reader
+  // Set up a REAL-AUDIO chapter. Deliberately independent of the voice list —
+  // the async `voiceschanged` arrival must never reset a playing stream.
   useEffect(() => {
+    if (!isAudioChapter) return;
     setIsPlaying(false);
     setCurrentTime(0);
-    setActiveChunk(0);
     setError(null);
     setDuration(currentChapter.duration || 30);
-
+    setChunks([]);
     speechRef.current?.dispose();
     speechRef.current = null;
+
     let objectUrl: string | null = null;
     let cancelled = false;
 
-    if (isAudioChapter) {
-      // Prefer the offline copy; fall back to streaming from the archive
-      setAudioSrc(null);
-      setAudioFromDevice(false);
-      db.getAudio(book.id, currentChapter.id)
-        .then((blob) => {
-          if (cancelled) return;
-          if (blob) {
-            objectUrl = URL.createObjectURL(blob);
-            setAudioSrc(objectUrl);
-            setAudioFromDevice(true);
-          } else {
-            setAudioSrc(currentChapter.audioUrl!);
-            if (!navigator.onLine) {
-              setError("This chapter isn't downloaded yet — connect to the internet or download it for offline.");
-            }
+    // Prefer the offline copy; fall back to streaming from the archive
+    setAudioSrc(null);
+    setAudioFromDevice(false);
+    db.getAudio(book.id, currentChapter.id)
+      .then((blob) => {
+        if (cancelled) return;
+        if (blob) {
+          objectUrl = URL.createObjectURL(blob);
+          setAudioSrc(objectUrl);
+          setAudioFromDevice(true);
+        } else {
+          setAudioSrc(currentChapter.audioUrl!);
+          if (!navigator.onLine) {
+            setError("This chapter isn't downloaded yet — connect to the internet or download it for offline.");
           }
-        })
-        .catch(() => {
-          if (!cancelled) setAudioSrc(currentChapter.audioUrl!);
-        });
-      setChunks([]);
-    } else {
-      setAudioSrc(null);
-      if (!ttsSupported) {
-        setChunks([currentChapter.text]);
-        return;
-      }
-      const estimated = currentChapter.duration || 30;
-      const reader = new SpeechReader(currentChapter.text);
-      reader.rate = playbackSpeed;
-      reader.setVoice(resolveVoice(voices, voiceId));
-      reader.onProgress = (done, total) => {
-        setCurrentTime((done / total) * estimated);
-      };
-      reader.onChunkChange = (idx) => setActiveChunk(idx);
-      reader.onEnd = () => {
-        setIsPlaying(false);
-        setCurrentTime(0);
-        setActiveChunk(0);
-        onUpdateXP(10, "listen");
-      };
-      reader.onError = (message) => {
-        setIsPlaying(false);
-        setError(message);
-      };
-      speechRef.current = reader;
-      setChunks(reader.getChunks());
-      chunkRefs.current = [];
-    }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAudioSrc(currentChapter.audioUrl!);
+      });
 
     return () => {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       audioRef.current?.pause();
-      speechRef.current?.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChapterIndex, book.id, voices, voiceId, currentChapter.downloaded]);
+  }, [activeChapterIndex, book.id, isAudioChapter]);
+
+  // Set up a TTS chapter (device voice). Re-runs when the voice list arrives
+  // or the user picks a narrator — that's harmless here, unlike for streams.
+  useEffect(() => {
+    if (isAudioChapter) return;
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setActiveChunk(0);
+    setError(null);
+    setDuration(currentChapter.duration || 30);
+    setAudioSrc(null);
+    speechRef.current?.dispose();
+    speechRef.current = null;
+
+    if (!ttsSupported) {
+      setChunks([currentChapter.text]);
+      return;
+    }
+    const estimated = currentChapter.duration || 30;
+    const reader = new SpeechReader(currentChapter.text);
+    reader.rate = playbackSpeed;
+    reader.setVoice(resolveVoice(voices, voiceId));
+    reader.onProgress = (done, total) => {
+      setCurrentTime((done / total) * estimated);
+    };
+    reader.onChunkChange = (idx) => setActiveChunk(idx);
+    reader.onEnd = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setActiveChunk(0);
+      onUpdateXP(10, "listen");
+    };
+    reader.onError = (message) => {
+      setIsPlaying(false);
+      setError(message);
+    };
+    speechRef.current = reader;
+    setChunks(reader.getChunks());
+    chunkRefs.current = [];
+
+    return () => {
+      reader.dispose();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChapterIndex, book.id, voices, voiceId, isAudioChapter]);
 
   // TTS pauses when the app is backgrounded (the engine dies anyway);
   // real audio keeps playing — that's the point of an audiobook.
@@ -196,28 +221,68 @@ export default function AudiobookPlayer({
     chunkRefs.current[activeChunk]?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [activeChunk, isPlaying, isAudioChapter]);
 
-  // Lock-screen / notification media controls for real audio
+  // Lock-screen / notification media controls for real audio. Handlers read
+  // refs, not closures, so they stay correct across chapter changes.
   const setupMediaSession = useCallback(() => {
     if (!("mediaSession" in navigator)) return;
     try {
+      const b = bookRef.current;
+      const ch = b.chapters[indexRef.current];
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: currentChapter.title,
-        artist: book.author,
-        album: book.title,
-        artwork: book.coverUrl ? [{ src: book.coverUrl, sizes: "180x180", type: "image/jpeg" }] : [],
+        title: ch?.title || b.title,
+        artist: b.author,
+        album: b.title,
+        artwork: b.coverUrl ? [{ src: b.coverUrl, sizes: "180x180", type: "image/jpeg" }] : [],
       });
-      navigator.mediaSession.setActionHandler("play", () => audioRef.current?.play());
-      navigator.mediaSession.setActionHandler("pause", () => audioRef.current?.pause());
+      navigator.mediaSession.setActionHandler("play", () => {
+        audioRef.current
+          ?.play()
+          .then(() => setIsPlaying(true))
+          .catch(() => {});
+      });
+      navigator.mediaSession.setActionHandler("pause", () => {
+        audioRef.current?.pause();
+        setIsPlaying(false);
+      });
       navigator.mediaSession.setActionHandler("seekbackward", () => {
         if (audioRef.current) audioRef.current.currentTime -= 15;
       });
       navigator.mediaSession.setActionHandler("seekforward", () => {
         if (audioRef.current) audioRef.current.currentTime += 15;
       });
+      navigator.mediaSession.setActionHandler("previoustrack", () => {
+        if (indexRef.current > 0) {
+          autoPlayNextRef.current = true;
+          setActiveChapterIndex(indexRef.current - 1);
+        }
+      });
+      navigator.mediaSession.setActionHandler("nexttrack", () => {
+        if (indexRef.current < bookRef.current.chapters.length - 1) {
+          autoPlayNextRef.current = true;
+          setActiveChapterIndex(indexRef.current + 1);
+        }
+      });
     } catch {
       // Media session is a nice-to-have
     }
-  }, [book.author, book.title, book.coverUrl, currentChapter.title]);
+  }, []);
+
+  // Keep the lock-screen scrubber in sync
+  const reportPosition = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || !("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+    try {
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        navigator.mediaSession.setPositionState({
+          duration: audio.duration,
+          playbackRate: audio.playbackRate,
+          position: Math.min(audio.currentTime, audio.duration),
+        });
+      }
+    } catch {
+      // Position state is a nice-to-have
+    }
+  }, []);
 
   const togglePlay = () => {
     setError(null);
@@ -227,6 +292,9 @@ export default function AudiobookPlayer({
       if (isPlaying) {
         audio.pause();
         setIsPlaying(false);
+        try {
+          if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+        } catch { /* nice-to-have */ }
       } else {
         audio.playbackRate = playbackSpeed;
         audio
@@ -234,6 +302,9 @@ export default function AudiobookPlayer({
           .then(() => {
             setIsPlaying(true);
             setupMediaSession();
+            try {
+              if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+            } catch { /* nice-to-have */ }
           })
           .catch(() => {
             setError(
@@ -285,30 +356,86 @@ export default function AudiobookPlayer({
     setCurrentTime(target);
   };
 
-  const handleDownload = async (chapter: Chapter) => {
-    if (downloadPercent[chapter.id] !== undefined || chapter.downloaded) return;
-    setDownloadPercent((prev) => ({ ...prev, [chapter.id]: 0 }));
+  // Serialized download queue: one chapter at a time, quota-checked before
+  // each fetch, and the whole queue stops on the first failure instead of
+  // hammering a dead connection or a full disk.
+  const clearDownloadMark = (chapterId: number) => {
+    setDownloadPercent((prev) => {
+      const next = { ...prev };
+      delete next[chapterId];
+      return next;
+    });
+  };
+
+  const processDownloadQueue = async () => {
+    if (dlActiveRef.current) return;
+    dlActiveRef.current = true;
     try {
-      const blob = await downloadChapterAudio(chapter, (percent) =>
-        setDownloadPercent((prev) => ({ ...prev, [chapter.id]: percent }))
-      );
-      await db.saveAudio(book.id, chapter.id, blob);
-      const updated: Book = {
+      while (dlQueueRef.current.length > 0) {
+        const chapter = dlQueueRef.current.shift()!;
+        try {
+          if (!(await hasSpaceFor(chapter.audioSizeMB || 30))) {
+            throw new Error(STORAGE_FULL_MESSAGE);
+          }
+          const blob = await downloadChapterAudio(chapter, (percent) =>
+            setDownloadPercent((prev) => ({ ...prev, [chapter.id]: percent }))
+          );
+          await db.saveAudio(bookRef.current.id, chapter.id, blob);
+          onUpdateBook({
+            ...bookRef.current,
+            chapters: bookRef.current.chapters.map((ch) =>
+              ch.id === chapter.id ? { ...ch, downloaded: true } : ch
+            ),
+          });
+          onUpdateXP(15);
+        } catch (err: any) {
+          setError(isQuotaError(err) ? STORAGE_FULL_MESSAGE : err.message || "Download failed. Please try again.");
+          // Drop everything still waiting — the cause likely affects them too
+          for (const pending of dlQueueRef.current) clearDownloadMark(pending.id);
+          dlQueueRef.current = [];
+        } finally {
+          clearDownloadMark(chapter.id);
+        }
+      }
+    } finally {
+      dlActiveRef.current = false;
+    }
+  };
+
+  const handleDownload = (chapter: Chapter) => {
+    if (downloadPercent[chapter.id] !== undefined || chapter.downloaded || !chapter.audioUrl) return;
+    setError(null);
+    setDownloadPercent((prev) => ({ ...prev, [chapter.id]: 0 }));
+    dlQueueRef.current.push(chapter);
+    void processDownloadQueue();
+  };
+
+  const handleDownloadAll = () => {
+    const remaining = bookRef.current.chapters.filter(
+      (ch) => ch.audioUrl && !ch.downloaded && downloadPercent[ch.id] === undefined
+    );
+    for (const ch of remaining) handleDownload(ch);
+  };
+
+  const handleRemoveDownload = async (chapter: Chapter) => {
+    try {
+      await db.deleteAudio(book.id, chapter.id);
+      onUpdateBook({
         ...bookRef.current,
         chapters: bookRef.current.chapters.map((ch) =>
-          ch.id === chapter.id ? { ...ch, downloaded: true } : ch
+          ch.id === chapter.id ? { ...ch, downloaded: false } : ch
         ),
-      };
-      onUpdateBook(updated);
-      onUpdateXP(15);
-    } catch (err: any) {
-      setError(err.message || "Download failed. Please try again.");
-    } finally {
-      setDownloadPercent((prev) => {
-        const next = { ...prev };
-        delete next[chapter.id];
-        return next;
       });
+      // If it's the chapter on screen, swap back to the streaming source
+      if (chapter.id === currentChapter.id && chapter.audioUrl) {
+        audioRef.current?.pause();
+        setIsPlaying(false);
+        setAudioFromDevice(false);
+        setAudioSrc(chapter.audioUrl);
+        setCurrentTime(0);
+      }
+    } catch {
+      setError("Couldn't remove the offline copy. Please try again.");
     }
   };
 
@@ -342,19 +469,39 @@ export default function AudiobookPlayer({
           ref={audioRef}
           src={audioSrc}
           preload="metadata"
-          onTimeUpdate={() => audioRef.current && setCurrentTime(audioRef.current.currentTime)}
+          onTimeUpdate={() => {
+            if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+            reportPosition();
+          }}
           onLoadedMetadata={() => {
             if (audioRef.current && isFinite(audioRef.current.duration)) {
               setDuration(audioRef.current.duration);
             }
           }}
+          onCanPlay={() => {
+            // Continuous playback: when the previous chapter ended (or a
+            // lock-screen skip was tapped), start this one without a touch —
+            // this is what keeps a whole book playing with the screen off.
+            if (autoPlayNextRef.current && audioRef.current) {
+              autoPlayNextRef.current = false;
+              audioRef.current.playbackRate = playbackSpeed;
+              audioRef.current
+                .play()
+                .then(() => {
+                  setIsPlaying(true);
+                  setupMediaSession();
+                })
+                .catch(() => setIsPlaying(false));
+            }
+          }}
           onEnded={() => {
-            setIsPlaying(false);
-            setCurrentTime(0);
             onUpdateXP(10, "listen");
-            // Roll into the next chapter automatically
-            if (activeChapterIndex < book.chapters.length - 1) {
-              setActiveChapterIndex(activeChapterIndex + 1);
+            if (indexRef.current < bookRef.current.chapters.length - 1) {
+              autoPlayNextRef.current = true;
+              setActiveChapterIndex(indexRef.current + 1);
+            } else {
+              setIsPlaying(false);
+              setCurrentTime(0);
             }
           }}
           onError={() => {
@@ -365,13 +512,14 @@ export default function AudiobookPlayer({
                   : "You're offline and this chapter isn't downloaded."
               );
             }
+            autoPlayNextRef.current = false;
             setIsPlaying(false);
           }}
         />
       )}
 
       {/* Header (iOS style) */}
-      <div className="bg-white border-b border-gray-100 pt-12 pb-4 px-4 flex items-center justify-between sticky top-0 z-20 shadow-xs">
+      <div className="bg-white border-b border-gray-100 pt-safe-header pb-4 px-4 flex items-center justify-between sticky top-0 z-20 shadow-xs">
         <button
           onClick={onBack}
           className="flex items-center gap-1 font-sans font-black text-sm text-[#1CB0F6] border border-gray-200 rounded-xl px-3 py-1.5 bg-white active:bg-slate-50 active:scale-98 transition-all"
@@ -498,6 +646,17 @@ export default function AudiobookPlayer({
             </div>
           )}
 
+          {/* Remove the offline copy to reclaim space */}
+          {isAudioChapter && currentChapter.downloaded && (
+            <button
+              onClick={() => handleRemoveDownload(currentChapter)}
+              className="mt-3 font-sans text-[10px] font-bold text-slate-400 underline underline-offset-2 active:text-slate-600"
+            >
+              Remove offline copy
+              {currentChapter.audioSizeMB ? ` (frees ${currentChapter.audioSizeMB}MB)` : ""}
+            </button>
+          )}
+
           {error && (
             <div className="mt-3 w-full bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-start gap-2 text-left">
               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -573,19 +732,52 @@ export default function AudiobookPlayer({
           </div>
         )}
 
-        {/* Offline hint for streaming books */}
-        {isAudioChapter && !currentChapter.downloaded && !isDownloading && (
-          <div className="flex items-center gap-2 px-2">
-            <CloudOff className="w-3.5 h-3.5 text-slate-300 shrink-0" />
-            <p className="font-sans text-[10px] text-slate-400 font-bold">
-              Chapters play over the internet until you download them. Downloaded chapters (✓) work anywhere.
-            </p>
-          </div>
-        )}
+        {/* Bulk offline download for the whole book */}
+        {isAudioChapter &&
+          (() => {
+            const remaining = book.chapters.filter((ch) => ch.audioUrl && !ch.downloaded);
+            const queued = Object.keys(downloadPercent).length;
+            const remainingMB = Math.round(remaining.reduce((sum, ch) => sum + (ch.audioSizeMB || 0), 0));
+            const activeEntry = Object.entries(downloadPercent)[0];
+            const activeChapterTitle = activeEntry
+              ? book.chapters.find((ch) => ch.id === Number(activeEntry[0]))?.title
+              : null;
+            return (
+              <div className="flex flex-col gap-2">
+                {remaining.length > 0 && queued === 0 && (
+                  <button
+                    onClick={handleDownloadAll}
+                    className="w-full py-3 bg-white border-2 border-[#1CB0F6]/30 text-[#1CB0F6] rounded-2xl font-sans font-black text-xs tracking-wide active:bg-[#E1F5FE]/50 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download all {remaining.length} remaining chapters
+                    {remainingMB > 0 ? ` (~${remainingMB}MB)` : ""}
+                  </button>
+                )}
+                {queued > 0 && activeChapterTitle && (
+                  <div className="bg-white border border-gray-200 rounded-2xl p-3 flex items-center gap-2.5">
+                    <span className="w-4 h-4 border-2 border-[#1CB0F6] border-t-transparent rounded-full animate-spin shrink-0" />
+                    <p className="font-sans text-[11px] text-slate-500 font-bold">
+                      Saving "{activeChapterTitle}" {activeEntry ? `${activeEntry[1]}%` : ""}
+                      {queued > 1 ? ` — ${queued - 1} more in queue` : ""}. One at a time keeps your phone happy!
+                    </p>
+                  </div>
+                )}
+                {remaining.length > 0 && (
+                  <div className="flex items-center gap-2 px-2">
+                    <CloudOff className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                    <p className="font-sans text-[10px] text-slate-400 font-bold">
+                      Chapters play over the internet until you download them. Downloaded chapters (✓) work anywhere.
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
       </div>
 
       {/* Floating Bottom Media Bar */}
-      <div className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 px-5 pt-4 pb-6 z-10 flex flex-col gap-3">
+      <div className="fixed bottom-0 inset-x-0 mx-auto max-w-[412px] bg-white/95 backdrop-blur-md border-t border-gray-100 px-5 pt-4 pb-safe-bar z-10 flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <div className="flex justify-between items-center text-[10px] font-black text-gray-400 font-mono">
             <span>{formatTime(currentTime)}</span>

@@ -8,6 +8,21 @@
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
+/* iPhone notch / home-indicator safe areas (viewport-fit=cover puts content
+   under them in installed-PWA mode, so every fixed bar must pad for them). */
+@utility pt-safe-header {
+  padding-top: max(3rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
+}
+@utility pb-safe-bar {
+  padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
+}
+@utility pb-safe-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility top-safe {
+  top: max(0.75rem, env(safe-area-inset-top, 0px));
+}
+
 /* Custom scrollbar hiding for native-like swipe carousels */
 .scrollbar-none::-webkit-scrollbar {
   display: none;

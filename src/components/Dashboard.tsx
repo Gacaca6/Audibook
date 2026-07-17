@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Book, UserProfile } from "../types";
-import { BookOpen, Trophy, Flame, Sparkles, CheckCircle, Wifi, WifiOff, Trash2, Headphones, Compass, Mic } from "lucide-react";
+import { BookOpen, Trophy, Flame, Sparkles, CheckCircle, Wifi, WifiOff, Trash2, Headphones, Compass, Mic, HardDrive } from "lucide-react";
 import { motion } from "motion/react";
 import BookUploader from "./BookUploader";
 import AudiMascot from "./AudiMascot";
 import Discover from "./Discover";
+import { getStorageInfo, StorageInfo } from "../lib/storage";
 
 interface DashboardProps {
   books: Book[];
@@ -36,6 +37,13 @@ export default function Dashboard({
   // Discovery is the front door; the shelf is one tap away
   const [activeTab, setActiveTab] = useState<Tab>("discover");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [storage, setStorage] = useState<StorageInfo | null>(null);
+
+  // Refresh the storage meter whenever the shelf is shown or books change
+  useEffect(() => {
+    if (activeTab !== "books") return;
+    getStorageInfo().then(setStorage);
+  }, [activeTab, books]);
 
   // Monitor network status to show cute status badges
   useEffect(() => {
@@ -120,6 +128,50 @@ export default function Dashboard({
           <div className="flex flex-col gap-4">
             {/* Drag & Drop uploader — works fully offline, books never leave the device */}
             <BookUploader onUploadSuccess={onRefreshBooks} />
+
+            {/* Storage meter: keep heavy downloaders out of trouble */}
+            {storage && (
+              <div
+                className={`border rounded-2xl p-3.5 flex items-center gap-3 ${
+                  storage.percentUsed >= 85
+                    ? "bg-amber-50 border-amber-200"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                <HardDrive
+                  className={`w-4 h-4 shrink-0 ${storage.percentUsed >= 85 ? "text-amber-500" : "text-slate-300"}`}
+                />
+                <div className="flex-1">
+                  <div className="flex justify-between items-center">
+                    <span className="font-sans font-black text-[10px] text-slate-500 uppercase tracking-wide">
+                      Device storage
+                    </span>
+                    <span className="font-mono text-[9px] text-slate-400 font-bold">
+                      {storage.usedMB >= 1024
+                        ? `${(storage.usedMB / 1024).toFixed(1)}GB`
+                        : `${storage.usedMB}MB`}{" "}
+                      of ~
+                      {storage.quotaMB >= 1024
+                        ? `${(storage.quotaMB / 1024).toFixed(1)}GB`
+                        : `${storage.quotaMB}MB`}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1.5">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        storage.percentUsed >= 85 ? "bg-amber-400" : "bg-[#58CC02]"
+                      }`}
+                      style={{ width: `${Math.max(2, storage.percentUsed)}%` }}
+                    />
+                  </div>
+                  {storage.percentUsed >= 85 && (
+                    <p className="font-sans text-[10px] text-amber-600 font-bold mt-1.5">
+                      Storage is getting full — remove downloaded chapters you've finished to make room.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Books Shelf List */}
             <div className="flex flex-col gap-3 mt-1">
@@ -315,7 +367,7 @@ export default function Dashboard({
       </div>
 
       {/* Fixed Bottom Tab Bar (Duolingo style) */}
-      <nav className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 z-30 pb-safe">
+      <nav className="fixed bottom-0 inset-x-0 mx-auto max-w-[412px] bg-white/95 backdrop-blur-md border-t border-gray-100 z-30 pb-safe-nav">
         <div className="max-w-[412px] mx-auto flex">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = activeTab === id;

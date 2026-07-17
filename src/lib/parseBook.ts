@@ -224,7 +224,15 @@ async function parsePdf(file: File, onProgress: OnProgress): Promise<string> {
 
 // ---------- Entry point ----------
 
+const MAX_FILE_MB = 80; // parsing happens in RAM; huge files would crash a phone tab
+
 export async function parseBookFile(file: File, onProgress: OnProgress): Promise<Book> {
+  if (file.size > MAX_FILE_MB * 1048576) {
+    throw new Error(
+      `This file is ${Math.round(file.size / 1048576)}MB — too large to process safely on a phone. ` +
+        `Files up to ${MAX_FILE_MB}MB work best (a plain EPUB or TXT of the same book is usually much smaller).`
+    );
+  }
   onProgress({ stage: "reading", percent: 2 });
   const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'audibook-cache-v5';
+const CACHE_NAME = 'audibook-cache-v6';
 // Precache the stable app shell; hashed JS/CSS bundles are picked up at
 // runtime by the stale-while-revalidate handler below.
 const ASSETS_TO_CACHE = [

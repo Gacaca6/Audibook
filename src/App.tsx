@@ -319,7 +319,7 @@ export default function App() {
               initial={{ opacity: 0, y: -40, scale: 0.9 }}
               animate={{ opacity: 1, y: 15, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.9 }}
-              className="absolute top-14 left-4 right-4 bg-[#FF9600] border-2 border-orange-500 rounded-2xl p-3.5 flex items-center gap-3 shadow-lg z-40 text-white"
+              className="absolute top-safe left-4 right-4 bg-[#FF9600] border-2 border-orange-500 rounded-2xl p-3.5 flex items-center gap-3 shadow-lg z-40 text-white"
             >
               <div className="bg-white p-2 rounded-xl text-lg shadow-sm">🏆</div>
               <div className="text-left">
