@@ -90,3 +90,21 @@ export async function deleteAudio(bookId: string, chapterId: number): Promise<vo
   tx.objectStore("audio").delete(audioKey(bookId, chapterId));
   await txDone(tx);
 }
+
+// Cover art lives in the same blob store under `${bookId}:cover`, which the
+// deleteBook prefix range (`${bookId}:` … `${bookId}:￿`) already cleans up.
+export async function saveCover(bookId: string, blob: Blob): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction("audio", "readwrite");
+  tx.objectStore("audio").put(blob, `${bookId}:cover`);
+  await txDone(tx);
+}
+
+export async function getCover(bookId: string): Promise<Blob | null> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction("audio", "readonly").objectStore("audio").get(`${bookId}:cover`);
+    req.onsuccess = () => resolve((req.result as Blob) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}

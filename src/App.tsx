@@ -3,8 +3,10 @@ import { Book, Chapter, UserProfile, Achievement } from "./types";
 import Dashboard from "./components/Dashboard";
 import AudiobookPlayer from "./components/AudiobookPlayer";
 import QuizModal from "./components/QuizModal";
+import MiniPlayer from "./components/MiniPlayer";
 import { motion, AnimatePresence } from "motion/react";
 import * as db from "./lib/db";
+import { audioPlayer } from "./lib/audioPlayer";
 import { sampleBook } from "./data/sampleBook";
 
 // Default initial achievements
@@ -68,6 +70,7 @@ function mergeAchievements(stored: unknown): Achievement[] {
 export default function App() {
   const [books, setBooks] = useState<Book[]>([]);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [playerStartChapter, setPlayerStartChapter] = useState(0);
   const [activeQuizChapter, setActiveQuizChapter] = useState<Chapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -213,8 +216,12 @@ export default function App() {
     }
   }, [userProfile.achievements]);
 
-  // Delete a book (and its stored HQ audio)
+  // Delete a book (and its stored audio + cover)
   const handleDeleteBook = async (bookId: string) => {
+    // Stop playback if the deleted book is the one playing
+    if (audioPlayer.getSnapshot().nowPlaying?.book.id === bookId) {
+      audioPlayer.stop();
+    }
     try {
       await db.deleteBook(bookId);
     } catch (err) {
@@ -251,10 +258,30 @@ export default function App() {
 
   // Select audiobook to listen
   const handleSelectBook = (book: Book) => {
+    setPlayerStartChapter(0);
     setSelectedBook(book);
     // Track achievement
     handleUpdateXP(5); // listening enter reward
   };
+
+  // Jump back into whatever's playing (from the mini player)
+  const handleOpenNowPlaying = (bookId: string, chapterIndex: number) => {
+    const book = books.find((b) => b.id === bookId);
+    if (!book) return;
+    setPlayerStartChapter(chapterIndex);
+    setSelectedBook(book);
+  };
+
+  // Award XP whenever the global audio engine finishes a chapter — playback
+  // keeps running (and earning) even while browsing other screens
+  const handleUpdateXPRef = useRef(handleUpdateXP);
+  handleUpdateXPRef.current = handleUpdateXP;
+  useEffect(() => {
+    audioPlayer.onChapterEnd = () => handleUpdateXPRef.current(10, "listen");
+    return () => {
+      audioPlayer.onChapterEnd = undefined;
+    };
+  }, []);
 
   // Complete chapter quiz and award XP
   const handleCompleteQuiz = (xpEarned: number) => {
@@ -350,6 +377,8 @@ export default function App() {
                   className="flex-1 flex flex-col h-full bg-[#F0F2F5]"
                 >
                   <AudiobookPlayer
+                    key={selectedBook.id}
+                    initialChapterIndex={playerStartChapter}
                     book={selectedBook}
                     onBack={() => setSelectedBook(null)}
                     onOpenQuiz={(ch) => setActiveQuizChapter(ch)}
@@ -381,6 +410,9 @@ export default function App() {
             </>
           )}
         </div>
+
+        {/* Persistent mini player: pause/resume from anywhere while browsing */}
+        {!selectedBook && !isLoading && <MiniPlayer onOpen={handleOpenNowPlaying} />}
 
         {/* 3. GAMIFIED COMPREHENSION QUIZ MODAL */}
         <AnimatePresence>

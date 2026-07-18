@@ -3,7 +3,8 @@ import { Search, Download, Check, Headphones, AlertTriangle, Loader2 } from "luc
 import { motion, AnimatePresence } from "motion/react";
 import AudiMascot from "./AudiMascot";
 import { searchAudiobooks, getAudiobook, AudiobookSearchResult } from "../lib/librivox";
-import { saveBook } from "../lib/db";
+import { fetchBookText, attachQuizzes } from "../lib/bookText";
+import { saveBook, saveCover } from "../lib/db";
 import { Book } from "../types";
 
 interface DiscoverProps {
@@ -49,9 +50,29 @@ export default function Discover({ shelfBookIds, onBookAdded }: DiscoverProps) {
     setAddingId(result.identifier);
     setError(null);
     try {
-      const book = await getAudiobook(result.identifier);
+      let book = await getAudiobook(result.identifier);
+
+      // Best-effort extras — the audiobook works fine without either:
+      // 1. Matching book text -> per-chapter comprehension quizzes
+      try {
+        const text = await fetchBookText(book.title, book.author);
+        if (text) book = attachQuizzes(book, text);
+      } catch {
+        // no text match — quizzes stay off for this recording
+      }
+
       await saveBook(book);
       onBookAdded(book);
+
+      // 2. Cover art stored locally so the shelf looks right offline
+      if (book.coverUrl) {
+        fetch(book.coverUrl)
+          .then((r) => (r.ok ? r.blob() : null))
+          .then((blob) => {
+            if (blob && blob.size > 0) return saveCover(book.id, blob);
+          })
+          .catch(() => {});
+      }
     } catch (err: any) {
       setError(err.message || "Couldn't add this audiobook. Please try again.");
     } finally {

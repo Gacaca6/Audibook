@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import AudiMascot from "./AudiMascot";
+import BookCover from "./BookCover";
 import {
   SpeechReader,
   loadVoices,
@@ -25,11 +26,13 @@ import {
   VoiceOption,
 } from "../lib/speech";
 import { downloadChapterAudio } from "../lib/librivox";
+import { audioPlayer, useAudioPlayer } from "../lib/audioPlayer";
 import { hasSpaceFor, isQuotaError, STORAGE_FULL_MESSAGE } from "../lib/storage";
 import * as db from "../lib/db";
 
 interface AudiobookPlayerProps {
   book: Book;
+  initialChapterIndex?: number;
   onBack: () => void;
   onOpenQuiz: (chapter: Chapter) => void;
   completedQuizzes: string[]; // bookId-chapterId
@@ -39,47 +42,44 @@ interface AudiobookPlayerProps {
 
 export default function AudiobookPlayer({
   book,
+  initialChapterIndex = 0,
   onBack,
   onOpenQuiz,
   completedQuizzes,
   onUpdateXP,
   onUpdateBook,
 }: AudiobookPlayerProps) {
-  const [activeChapterIndex, setActiveChapterIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [activeChapterIndex, setActiveChapterIndex] = useState(
+    Math.min(Math.max(0, initialChapterIndex), book.chapters.length - 1)
+  );
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [error, setError] = useState<string | null>(null);
-
-  // Real-audio (LibriVox) state
-  const [audioSrc, setAudioSrc] = useState<string | null>(null);
-  const [audioFromDevice, setAudioFromDevice] = useState(false);
   const [downloadPercent, setDownloadPercent] = useState<Record<number, number>>({});
 
-  // Read-along state (TTS chapters)
+  // TTS-only state (uploaded books narrated by the device voice)
+  const [ttsPlaying, setTtsPlaying] = useState(false);
+  const [ttsTime, setTtsTime] = useState(0);
   const [chunks, setChunks] = useState<string[]>([]);
   const [activeChunk, setActiveChunk] = useState(0);
-
-  // Voice state (TTS chapters)
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
   const [voiceId, setVoiceId] = useState<string | null>(getSavedVoiceId());
   const [showVoicePicker, setShowVoicePicker] = useState(false);
 
+  // Global audio engine (real audiobooks) — playback survives navigation
+  const player = useAudioPlayer();
+
   const currentChapter = book.chapters[activeChapterIndex] || book.chapters[0];
   const isAudioChapter = !!currentChapter.audioUrl;
+  const boundToEngine =
+    isAudioChapter &&
+    player.nowPlaying?.book.id === book.id &&
+    player.nowPlaying?.chapterIndex === activeChapterIndex;
+
   const speechRef = useRef<SpeechReader | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const chunkRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const bookRef = useRef(book);
   bookRef.current = book;
-  const indexRef = useRef(activeChapterIndex);
-  indexRef.current = activeChapterIndex;
-  // When a chapter ends (or lock-screen next is tapped), the next one should
-  // start playing on its own — including with the screen off.
-  const autoPlayNextRef = useRef(false);
-  // Downloads run one at a time; parallel multi-MB fetches spike phone memory.
   const dlQueueRef = useRef<Chapter[]>([]);
   const dlActiveRef = useRef(false);
   const ttsSupported = SpeechReader.isSupported();
@@ -87,6 +87,17 @@ export default function AudiobookPlayer({
   const bookChapterKey = `${book.id}-${currentChapter.id}`;
   const isQuizCompleted = completedQuizzes.includes(bookChapterKey);
   const isDownloading = downloadPercent[currentChapter.id] !== undefined;
+
+  // Unified view state across the two engines
+  const isPlaying = isAudioChapter ? boundToEngine && player.isPlaying : ttsPlaying;
+  const currentTime = isAudioChapter ? (boundToEngine ? player.currentTime : 0) : ttsTime;
+  const duration = isAudioChapter
+    ? boundToEngine && player.duration > 0
+      ? player.duration
+      : currentChapter.duration || 0
+    : currentChapter.duration || 30;
+  const shownError = error || (boundToEngine ? player.error : null);
+  const playingFromDevice = boundToEngine ? player.nowPlaying!.fromDevice : !!currentChapter.downloaded;
 
   // Resolve the device's voices once (Safari populates these asynchronously)
   useEffect(() => {
@@ -113,60 +124,40 @@ export default function AudiobookPlayer({
     []
   );
 
-  // Set up a REAL-AUDIO chapter. Deliberately independent of the voice list —
-  // the async `voiceschanged` arrival must never reset a playing stream.
+  // AUDIO chapters: hand the chapter to the global engine (loaded, not
+  // auto-played). If it's already the playing chapter, this is a no-op and
+  // playback simply continues.
   useEffect(() => {
     if (!isAudioChapter) return;
-    setIsPlaying(false);
-    setCurrentTime(0);
     setError(null);
-    setDuration(currentChapter.duration || 30);
-    setChunks([]);
     speechRef.current?.dispose();
     speechRef.current = null;
-
-    let objectUrl: string | null = null;
-    let cancelled = false;
-
-    // Prefer the offline copy; fall back to streaming from the archive
-    setAudioSrc(null);
-    setAudioFromDevice(false);
-    db.getAudio(book.id, currentChapter.id)
-      .then((blob) => {
-        if (cancelled) return;
-        if (blob) {
-          objectUrl = URL.createObjectURL(blob);
-          setAudioSrc(objectUrl);
-          setAudioFromDevice(true);
-        } else {
-          setAudioSrc(currentChapter.audioUrl!);
-          if (!navigator.onLine) {
-            setError("This chapter isn't downloaded yet — connect to the internet or download it for offline.");
-          }
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setAudioSrc(currentChapter.audioUrl!);
-      });
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      audioRef.current?.pause();
-    };
+    setChunks([]);
+    void audioPlayer.playChapter(book, activeChapterIndex, false);
+    // Playback intentionally continues on unmount — that's the feature.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChapterIndex, book.id, isAudioChapter]);
 
-  // Set up a TTS chapter (device voice). Re-runs when the voice list arrives
-  // or the user picks a narrator — that's harmless here, unlike for streams.
+  // Follow the engine's auto-advance while this book is open
+  useEffect(() => {
+    if (
+      player.nowPlaying &&
+      player.nowPlaying.book.id === book.id &&
+      player.nowPlaying.chapterIndex !== activeChapterIndex
+    ) {
+      setActiveChapterIndex(player.nowPlaying.chapterIndex);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player.nowPlaying?.chapterIndex]);
+
+  // TTS chapters: local reader, dies with the screen (the engine can't run
+  // in the background anyway — platform restriction on speech synthesis)
   useEffect(() => {
     if (isAudioChapter) return;
-    setIsPlaying(false);
-    setCurrentTime(0);
+    setTtsPlaying(false);
+    setTtsTime(0);
     setActiveChunk(0);
     setError(null);
-    setDuration(currentChapter.duration || 30);
-    setAudioSrc(null);
     speechRef.current?.dispose();
     speechRef.current = null;
 
@@ -179,17 +170,17 @@ export default function AudiobookPlayer({
     reader.rate = playbackSpeed;
     reader.setVoice(resolveVoice(voices, voiceId));
     reader.onProgress = (done, total) => {
-      setCurrentTime((done / total) * estimated);
+      setTtsTime((done / total) * estimated);
     };
     reader.onChunkChange = (idx) => setActiveChunk(idx);
     reader.onEnd = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
+      setTtsPlaying(false);
+      setTtsTime(0);
       setActiveChunk(0);
       onUpdateXP(10, "listen");
     };
     reader.onError = (message) => {
-      setIsPlaying(false);
+      setTtsPlaying(false);
       setError(message);
     };
     speechRef.current = reader;
@@ -202,13 +193,12 @@ export default function AudiobookPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChapterIndex, book.id, voices, voiceId, isAudioChapter]);
 
-  // TTS pauses when the app is backgrounded (the engine dies anyway);
-  // real audio keeps playing — that's the point of an audiobook.
+  // TTS pauses when the app is backgrounded (the speech engine dies anyway)
   useEffect(() => {
     const onHide = () => {
       if (document.visibilityState === "hidden" && speechRef.current) {
         speechRef.current.pause();
-        setIsPlaying(false);
+        setTtsPlaying(false);
       }
     };
     document.addEventListener("visibilitychange", onHide);
@@ -217,125 +207,36 @@ export default function AudiobookPlayer({
 
   // Keep the highlighted sentence in view while listening (TTS mode)
   useEffect(() => {
-    if (!isPlaying || isAudioChapter) return;
+    if (!ttsPlaying || isAudioChapter) return;
     chunkRefs.current[activeChunk]?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [activeChunk, isPlaying, isAudioChapter]);
-
-  // Lock-screen / notification media controls for real audio. Handlers read
-  // refs, not closures, so they stay correct across chapter changes.
-  const setupMediaSession = useCallback(() => {
-    if (!("mediaSession" in navigator)) return;
-    try {
-      const b = bookRef.current;
-      const ch = b.chapters[indexRef.current];
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: ch?.title || b.title,
-        artist: b.author,
-        album: b.title,
-        artwork: b.coverUrl ? [{ src: b.coverUrl, sizes: "180x180", type: "image/jpeg" }] : [],
-      });
-      navigator.mediaSession.setActionHandler("play", () => {
-        audioRef.current
-          ?.play()
-          .then(() => setIsPlaying(true))
-          .catch(() => {});
-      });
-      navigator.mediaSession.setActionHandler("pause", () => {
-        audioRef.current?.pause();
-        setIsPlaying(false);
-      });
-      navigator.mediaSession.setActionHandler("seekbackward", () => {
-        if (audioRef.current) audioRef.current.currentTime -= 15;
-      });
-      navigator.mediaSession.setActionHandler("seekforward", () => {
-        if (audioRef.current) audioRef.current.currentTime += 15;
-      });
-      navigator.mediaSession.setActionHandler("previoustrack", () => {
-        if (indexRef.current > 0) {
-          autoPlayNextRef.current = true;
-          setActiveChapterIndex(indexRef.current - 1);
-        }
-      });
-      navigator.mediaSession.setActionHandler("nexttrack", () => {
-        if (indexRef.current < bookRef.current.chapters.length - 1) {
-          autoPlayNextRef.current = true;
-          setActiveChapterIndex(indexRef.current + 1);
-        }
-      });
-    } catch {
-      // Media session is a nice-to-have
-    }
-  }, []);
-
-  // Keep the lock-screen scrubber in sync
-  const reportPosition = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || !("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
-    try {
-      if (isFinite(audio.duration) && audio.duration > 0) {
-        navigator.mediaSession.setPositionState({
-          duration: audio.duration,
-          playbackRate: audio.playbackRate,
-          position: Math.min(audio.currentTime, audio.duration),
-        });
-      }
-    } catch {
-      // Position state is a nice-to-have
-    }
-  }, []);
+  }, [activeChunk, ttsPlaying, isAudioChapter]);
 
   const togglePlay = () => {
     setError(null);
     if (isAudioChapter) {
-      const audio = audioRef.current;
-      if (!audio) return;
-      if (isPlaying) {
-        audio.pause();
-        setIsPlaying(false);
-        try {
-          if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
-        } catch { /* nice-to-have */ }
+      if (boundToEngine) {
+        audioPlayer.toggle();
       } else {
-        audio.playbackRate = playbackSpeed;
-        audio
-          .play()
-          .then(() => {
-            setIsPlaying(true);
-            setupMediaSession();
-            try {
-              if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
-            } catch { /* nice-to-have */ }
-          })
-          .catch(() => {
-            setError(
-              navigator.onLine
-                ? "Couldn't start this chapter. Try downloading it, or check the next chapter."
-                : "You're offline and this chapter isn't downloaded yet."
-            );
-          });
+        void audioPlayer.playChapter(book, activeChapterIndex, true);
       }
     } else {
       if (!ttsSupported) {
         setError("This browser can't narrate. Try Safari or Chrome.");
         return;
       }
-      if (isPlaying) {
+      if (ttsPlaying) {
         speechRef.current?.pause();
-        setIsPlaying(false);
+        setTtsPlaying(false);
       } else {
         speechRef.current?.play(); // called straight from the tap: iOS requires this
-        setIsPlaying(true);
+        setTtsPlaying(true);
       }
     }
   };
 
   const skip = (direction: 1 | -1) => {
     if (isAudioChapter) {
-      const audio = audioRef.current;
-      if (audio) {
-        audio.currentTime = Math.max(0, Math.min(audio.duration || duration, audio.currentTime + direction * 15));
-        setCurrentTime(audio.currentTime);
-      }
+      audioPlayer.skip(direction * 15);
     } else {
       speechRef.current?.skipChunks(direction);
     }
@@ -345,20 +246,17 @@ export default function AudiobookPlayer({
     const speeds = [0.8, 1, 1.25, 1.5];
     const nextSpeed = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
     setPlaybackSpeed(nextSpeed);
-    if (audioRef.current) audioRef.current.playbackRate = nextSpeed;
+    audioPlayer.setRate(nextSpeed);
     speechRef.current?.setRate(nextSpeed);
   };
 
   const handleSeek = (ratio: number) => {
-    if (!isAudioChapter || !audioRef.current) return;
-    const target = ratio * (audioRef.current.duration || duration);
-    audioRef.current.currentTime = target;
-    setCurrentTime(target);
+    if (!isAudioChapter || !boundToEngine) return;
+    audioPlayer.seek(ratio * duration);
   };
 
-  // Serialized download queue: one chapter at a time, quota-checked before
-  // each fetch, and the whole queue stops on the first failure instead of
-  // hammering a dead connection or a full disk.
+  // Serialized download queue: one chapter at a time, quota-checked, stops on
+  // first failure instead of hammering a dead connection or a full disk.
   const clearDownloadMark = (chapterId: number) => {
     setDownloadPercent((prev) => {
       const next = { ...prev };
@@ -381,16 +279,17 @@ export default function AudiobookPlayer({
             setDownloadPercent((prev) => ({ ...prev, [chapter.id]: percent }))
           );
           await db.saveAudio(bookRef.current.id, chapter.id, blob);
-          onUpdateBook({
+          const updated = {
             ...bookRef.current,
             chapters: bookRef.current.chapters.map((ch) =>
               ch.id === chapter.id ? { ...ch, downloaded: true } : ch
             ),
-          });
+          };
+          onUpdateBook(updated);
+          audioPlayer.syncBook(updated);
           onUpdateXP(15);
         } catch (err: any) {
           setError(isQuotaError(err) ? STORAGE_FULL_MESSAGE : err.message || "Download failed. Please try again.");
-          // Drop everything still waiting — the cause likely affects them too
           for (const pending of dlQueueRef.current) clearDownloadMark(pending.id);
           dlQueueRef.current = [];
         } finally {
@@ -420,20 +319,14 @@ export default function AudiobookPlayer({
   const handleRemoveDownload = async (chapter: Chapter) => {
     try {
       await db.deleteAudio(book.id, chapter.id);
-      onUpdateBook({
+      const updated = {
         ...bookRef.current,
         chapters: bookRef.current.chapters.map((ch) =>
           ch.id === chapter.id ? { ...ch, downloaded: false } : ch
         ),
-      });
-      // If it's the chapter on screen, swap back to the streaming source
-      if (chapter.id === currentChapter.id && chapter.audioUrl) {
-        audioRef.current?.pause();
-        setIsPlaying(false);
-        setAudioFromDevice(false);
-        setAudioSrc(chapter.audioUrl);
-        setCurrentTime(0);
-      }
+      };
+      onUpdateBook(updated);
+      audioPlayer.syncBook(updated);
     } catch {
       setError("Couldn't remove the offline copy. Please try again.");
     }
@@ -463,61 +356,6 @@ export default function AudiobookPlayer({
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F0F2F5] pb-28" id="player-screen">
-      {/* Real audio element (LibriVox chapters) */}
-      {isAudioChapter && audioSrc && (
-        <audio
-          ref={audioRef}
-          src={audioSrc}
-          preload="metadata"
-          onTimeUpdate={() => {
-            if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
-            reportPosition();
-          }}
-          onLoadedMetadata={() => {
-            if (audioRef.current && isFinite(audioRef.current.duration)) {
-              setDuration(audioRef.current.duration);
-            }
-          }}
-          onCanPlay={() => {
-            // Continuous playback: when the previous chapter ended (or a
-            // lock-screen skip was tapped), start this one without a touch —
-            // this is what keeps a whole book playing with the screen off.
-            if (autoPlayNextRef.current && audioRef.current) {
-              autoPlayNextRef.current = false;
-              audioRef.current.playbackRate = playbackSpeed;
-              audioRef.current
-                .play()
-                .then(() => {
-                  setIsPlaying(true);
-                  setupMediaSession();
-                })
-                .catch(() => setIsPlaying(false));
-            }
-          }}
-          onEnded={() => {
-            onUpdateXP(10, "listen");
-            if (indexRef.current < bookRef.current.chapters.length - 1) {
-              autoPlayNextRef.current = true;
-              setActiveChapterIndex(indexRef.current + 1);
-            } else {
-              setIsPlaying(false);
-              setCurrentTime(0);
-            }
-          }}
-          onError={() => {
-            if (audioSrc && !audioFromDevice) {
-              setError(
-                navigator.onLine
-                  ? "This audio file couldn't load. Try another chapter."
-                  : "You're offline and this chapter isn't downloaded."
-              );
-            }
-            autoPlayNextRef.current = false;
-            setIsPlaying(false);
-          }}
-        />
-      )}
-
       {/* Header (iOS style) */}
       <div className="bg-white border-b border-gray-100 pt-safe-header pb-4 px-4 flex items-center justify-between sticky top-0 z-20 shadow-xs">
         <button
@@ -573,16 +411,7 @@ export default function AudiobookPlayer({
         {/* Cover / Mascot Card */}
         <div className="bg-white border border-gray-200 rounded-[2rem] p-5 shadow-sm text-center flex flex-col items-center">
           {book.coverUrl ? (
-            <div className="w-36 h-36 rounded-3xl overflow-hidden shadow-md bg-gradient-to-br from-green-300 to-[#58CC02] flex items-center justify-center">
-              <img
-                src={book.coverUrl}
-                alt=""
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
-            </div>
+            <BookCover book={book} className="w-36 h-36 rounded-3xl shadow-md" />
           ) : (
             <AudiMascot mood={isPlaying ? "listening" : "happy"} className="w-40 h-40" />
           )}
@@ -592,7 +421,7 @@ export default function AudiobookPlayer({
               <span className="bg-[#E1F5FE] border border-[#1CB0F6]/20 text-[#1CB0F6] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
                 🎙 Human Narrated {book.runtime ? `• ${book.runtime}` : ""}
               </span>
-              {audioFromDevice ? (
+              {playingFromDevice ? (
                 <span className="bg-[#58CC02]/10 border border-[#58CC02]/20 text-[#58CC02] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
                   ✓ Playing from your device — works offline
                 </span>
@@ -657,10 +486,10 @@ export default function AudiobookPlayer({
             </button>
           )}
 
-          {error && (
+          {shownError && (
             <div className="mt-3 w-full bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-start gap-2 text-left">
               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <p className="font-sans text-[11px] text-amber-700 font-bold">{error}</p>
+              <p className="font-sans text-[11px] text-amber-700 font-bold">{shownError}</p>
             </div>
           )}
         </div>
@@ -874,7 +703,7 @@ export default function AudiobookPlayer({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="bg-white w-full max-w-[412px] rounded-t-[2rem] p-5 max-h-[70vh] flex flex-col"
+              className="bg-white w-full max-w-[412px] rounded-t-[2rem] p-5 pb-safe-bar max-h-[70vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-3">

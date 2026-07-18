@@ -98,6 +98,17 @@ export async function getAudiobook(identifier: string): Promise<Book> {
     downloaded: false,
   }));
 
+  // Cover art: prefer the item's real JPEG over the tiny tile, and use the
+  // /download/ path — unlike /services/img/ it sends CORS headers, so the
+  // image can also be fetched as a blob and stored for offline.
+  const imageFile =
+    files.find((f) => f.format === "JPEG") ||
+    files.find((f) => f.format === "Item Tile") ||
+    files.find((f) => typeof f.name === "string" && /\.(jpe?g|png)$/i.test(f.name) && !/spectrogram/i.test(f.name));
+  const cover = imageFile
+    ? `https://archive.org/download/${encodeURIComponent(identifier)}/${encodeURIComponent(imageFile.name)}`
+    : coverUrl(identifier);
+
   const m = meta.metadata || {};
   return {
     id: `lv-${identifier}`,
@@ -111,7 +122,7 @@ export async function getAudiobook(identifier: string): Promise<Book> {
     chapters,
     xpReward: Math.min(1000, chapters.length * 50),
     source: "librivox",
-    coverUrl: coverUrl(identifier),
+    coverUrl: cover,
     description: m.description ? stripHtml(String(m.description)).slice(0, 500) : undefined,
     runtime: m.runtime ? String(m.runtime) : undefined,
   };

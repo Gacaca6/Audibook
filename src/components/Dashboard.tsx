@@ -4,6 +4,7 @@ import { BookOpen, Trophy, Flame, Sparkles, CheckCircle, Wifi, WifiOff, Trash2, 
 import { motion } from "motion/react";
 import BookUploader from "./BookUploader";
 import AudiMascot from "./AudiMascot";
+import BookCover from "./BookCover";
 import Discover from "./Discover";
 import { getStorageInfo, StorageInfo } from "../lib/storage";
 
@@ -213,34 +214,8 @@ export default function Dashboard({
 
                       <div className="flex justify-between items-start">
                         <div className="flex gap-3">
-                          {/* Book cover: real artwork for library books, colorful avatar otherwise */}
-                          <div
-                            className={`w-12 h-16 rounded-xl flex flex-col items-center justify-center text-white font-black relative shrink-0 shadow-sm overflow-hidden ${
-                              isProcessing
-                                ? "bg-gray-200"
-                                : isError
-                                ? "bg-red-400"
-                                : book.id === "audi-adventures"
-                                ? "bg-gradient-to-br from-[#E1F5FE] to-[#1CB0F6]"
-                                : "bg-gradient-to-br from-green-300 to-[#58CC02]"
-                            }`}
-                          >
-                            <Headphones className="w-5 h-5 opacity-75 mb-1 text-white" />
-                            <span className="font-mono text-[9px] uppercase tracking-wider text-white">
-                              {book.chaptersCount || "..."} Ch
-                            </span>
-                            {book.coverUrl && (
-                              <img
-                                src={book.coverUrl}
-                                alt=""
-                                loading="lazy"
-                                className="absolute inset-0 w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = "none";
-                                }}
-                              />
-                            )}
-                          </div>
+                          {/* Book cover: offline-aware artwork with gradient fallback */}
+                          <BookCover book={book} className="w-12 h-16 rounded-xl shrink-0 shadow-sm" />
 
                           <div>
                             <h4 className="font-display font-black text-[#1A1A1A] text-sm tracking-tight leading-snug line-clamp-1">
