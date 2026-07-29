@@ -43,7 +43,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           fontFamily: "ui-rounded, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         }}
       >
-        <div style={{ fontSize: 56 }}>🦉</div>
+        <div style={{ fontSize: 56 }}>🐾</div>
         <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1A1A1A" }}>Oops — Audi tripped over a branch!</h1>
         <p style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", maxWidth: 280, lineHeight: 1.5 }}>
           Something went wrong, but your books, downloads, and progress are all safe. A quick restart fixes it.
@@ -53,10 +53,10 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           style={{
             marginTop: 8,
             padding: "14px 28px",
-            background: "#58CC02",
+            background: "#6D4AFF",
             color: "#fff",
             border: "none",
-            borderBottom: "4px solid #46A302",
+            borderBottom: "4px solid #5433E0",
             borderRadius: 16,
             fontSize: 14,
             fontWeight: 800,

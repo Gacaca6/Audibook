@@ -41,7 +41,7 @@ export default function BookCover({ book, className = "" }: BookCoverProps) {
   return (
     <div
       className={`relative overflow-hidden flex flex-col items-center justify-center text-white bg-gradient-to-br ${
-        book.id === "audi-adventures" ? "from-[#E1F5FE] to-[#1CB0F6]" : "from-green-300 to-[#58CC02]"
+        book.id === "audi-adventures" ? "from-[#E0F7F4] to-[#00B3A4]" : "from-[#9B85FF] to-[#6D4AFF]"
       } ${className}`}
     >
       <Headphones className="w-5 h-5 opacity-75 text-white" />

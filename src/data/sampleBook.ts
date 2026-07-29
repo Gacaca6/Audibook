@@ -4,7 +4,7 @@ import { Book } from "../types";
 export const sampleBook: Book = {
   id: "audi-adventures",
   title: "Audi's Adventures in Language Land",
-  author: "Professor Owl",
+  author: "Audibook Studio",
   fileName: "audi_adventures.txt",
   uploadDate: new Date("2026-01-01").toISOString(),
   chaptersCount: 2,
@@ -15,7 +15,7 @@ export const sampleBook: Book = {
     {
       id: 1,
       title: "The Mysterious Book of Sound",
-      text: "Deep inside the Whispering Woods, Audi the little owl found a dusty book with headphones drawn on its cover. 'Hoot!' she gasped as the book spoke to her: 'Welcome, listener!' Audi learned that audiobooks are magic scrolls that paint pictures in your mind through words you hear instead of read. To master this magic, Audi had to listen carefully to the tone, the rhythm, and the secrets hidden in every spoken sentence.",
+      text: "Deep inside the Whispering Woods, Audi the little cat found a dusty book with headphones drawn on its cover. 'Purr!' she gasped as the book spoke to her: 'Welcome, listener!' Audi learned that audiobooks are magic scrolls that paint pictures in your mind through words you hear instead of read. To master this magic, Audi had to listen carefully to the tone, the rhythm, and the secrets hidden in every spoken sentence.",
       duration: 35,
       summary:
         "Audi discovers a magical talking book and learns that audiobooks paint pictures in your mind using pitch, tone, and pacing.",
@@ -54,7 +54,7 @@ export const sampleBook: Book = {
     },
     {
       id: 2,
-      title: "The Rhythm of the Hoot",
+      title: "The Rhythm of the Purr",
       text: "On the second day of her quest, Audi met Pip, a chatty chipmunk who spoke so fast that all his words blurred together like a runaway train. 'Slow down, Pip!' Audi laughed. 'A good audiobook needs a comfortable speed. Just like music, narration has a heartbeat. When we listen offline, we can take our time, breathe, and let each beautiful chapter settle into our memory.' Pip nodded, matching her slow, steady rhythm.",
       duration: 38,
       summary:

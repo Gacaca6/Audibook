@@ -1,6 +1,6 @@
-# 🦉 Audibook
+# 🎧 Audibook
 
-**Turn any book into a gamified audiobook — Duolingo-style. 100% free, forever.**
+**Free audiobooks, offline — plus turn any book of your own into one. 100% free, forever.**
 
 Audibook converts your EPUB, PDF, and TXT files into audiobooks with comprehension quizzes, XP, streaks, and trophies. Everything runs **inside your browser** — your books never leave your device, there are no servers, no accounts, and no API keys. Inspired by [audiblez](https://github.com/santinic/audiblez).
 

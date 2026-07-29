@@ -31,7 +31,7 @@ export default function MiniPlayer({ onOpen }: MiniPlayerProps) {
       >
         {/* Progress hairline */}
         <div className="h-0.5 bg-white/10">
-          <div className="h-full bg-[#58CC02] transition-all" style={{ width: `${progress}%` }} />
+          <div className="h-full bg-[#6D4AFF] transition-all" style={{ width: `${progress}%` }} />
         </div>
 
         <div className="flex items-center gap-3 p-2.5">
@@ -48,7 +48,7 @@ export default function MiniPlayer({ onOpen }: MiniPlayerProps) {
               e.stopPropagation();
               audioPlayer.toggle();
             }}
-            className="p-2.5 bg-[#58CC02] rounded-xl text-white active:scale-90 transition-all shrink-0"
+            className="p-2.5 bg-[#6D4AFF] rounded-xl text-white active:scale-90 transition-all shrink-0"
             title={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}

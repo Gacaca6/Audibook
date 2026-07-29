@@ -12,6 +12,8 @@ interface DashboardProps {
   books: Book[];
   userProfile: UserProfile;
   selectedBook: Book | null;
+  /** Tab requested by a launcher shortcut (?tab=…), if any. */
+  initialTab?: "discover" | "books" | "continue" | null;
   onSelectBook: (book: Book) => void;
   onRefreshBooks: () => void;
   onBookFetched: (book: Book) => void;
@@ -30,13 +32,18 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof Compass }> = [
 export default function Dashboard({
   books,
   userProfile,
+  initialTab,
   onSelectBook,
   onRefreshBooks,
   onBookFetched,
   onDeleteBook,
 }: DashboardProps) {
-  // Discovery is the front door; the shelf is one tap away
-  const [activeTab, setActiveTab] = useState<Tab>("discover");
+  // Discovery is the front door; the shelf is one tap away. A launcher
+  // shortcut can open straight to a specific tab ("continue" resumes
+  // listening, which lives on the shelf).
+  const [activeTab, setActiveTab] = useState<Tab>(
+    initialTab === "books" || initialTab === "continue" ? "books" : "discover"
+  );
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [storage, setStorage] = useState<StorageInfo | null>(null);
 
@@ -67,7 +74,7 @@ export default function Dashboard({
 
   return (
     <div className="flex flex-col gap-5 px-4 pb-32" id="dashboard-container">
-      {/* Gamified Header Stats (Duolingo Style) */}
+      {/* Gamified header stats */}
       <div className="bg-white border border-gray-200 rounded-[2rem] p-4 flex justify-between items-center shadow-sm relative">
         <div className="flex items-center gap-2">
           <AudiMascot mood="happy" className="w-12 h-12" />
@@ -80,14 +87,14 @@ export default function Dashboard({
         {/* Status Pills */}
         <div className="flex items-center gap-2">
           {/* Flame Streak */}
-          <div className="flex items-center gap-1 bg-[#FF9600] border-b-4 border-black/10 px-2.5 py-1.5 rounded-2xl text-white">
+          <div className="flex items-center gap-1 bg-[#FF7A45] border-b-4 border-black/10 px-2.5 py-1.5 rounded-2xl text-white">
             <Flame className="w-4 h-4 text-white fill-white animate-pulse" />
             <span className="font-sans font-black text-xs">{userProfile.streak}d</span>
           </div>
 
           {/* XP Crown */}
-          <div className="flex items-center gap-1 bg-[#E1F5FE] border-b-4 border-[#1CB0F6]/20 px-2.5 py-1.5 rounded-2xl text-[#1CB0F6]">
-            <Sparkles className="w-4 h-4 text-[#1CB0F6] fill-[#1CB0F6]" />
+          <div className="flex items-center gap-1 bg-[#E0F7F4] border-b-4 border-[#00B3A4]/20 px-2.5 py-1.5 rounded-2xl text-[#00B3A4]">
+            <Sparkles className="w-4 h-4 text-[#00B3A4] fill-[#00B3A4]" />
             <span className="font-sans font-black text-xs">{userProfile.xp}</span>
           </div>
 
@@ -95,7 +102,7 @@ export default function Dashboard({
           <div
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-2xl text-[10px] font-black border-b-4 transition-colors ${
               isOnline
-                ? "bg-[#58CC02] border-[#46A302] text-white"
+                ? "bg-[#6D4AFF] border-[#5433E0] text-white"
                 : "bg-amber-400 border-amber-600 text-white animate-pulse"
             }`}
           >
@@ -119,7 +126,7 @@ export default function Dashboard({
               </p>
               <button
                 onClick={() => setActiveTab("books")}
-                className="mt-4 px-4 py-2.5 bg-[#58CC02] border-b-4 border-[#46A302] active:border-b-0 active:translate-y-[4px] text-white rounded-xl font-sans font-black text-xs transition-all"
+                className="mt-4 px-4 py-2.5 bg-[#6D4AFF] border-b-4 border-[#5433E0] active:border-b-0 active:translate-y-[4px] text-white rounded-xl font-sans font-black text-xs transition-all"
               >
                 Go to My Books
               </button>
@@ -160,7 +167,7 @@ export default function Dashboard({
                   <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1.5">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        storage.percentUsed >= 85 ? "bg-amber-400" : "bg-[#58CC02]"
+                        storage.percentUsed >= 85 ? "bg-amber-400" : "bg-[#6D4AFF]"
                       }`}
                       style={{ width: `${Math.max(2, storage.percentUsed)}%` }}
                     />
@@ -203,13 +210,13 @@ export default function Dashboard({
                           ? "animate-pulse"
                           : isError
                           ? "border-red-200 bg-red-50/20"
-                          : "hover:border-[#58CC02] cursor-pointer"
+                          : "hover:border-[#6D4AFF] cursor-pointer"
                       }`}
                       onClick={() => !isProcessing && !isError && onSelectBook(book)}
                     >
                       {/* Processing Overlay Badge */}
                       {isProcessing && (
-                        <div className="absolute top-0 left-0 bg-[#58CC02] h-1.5 w-full animate-pulse" />
+                        <div className="absolute top-0 left-0 bg-[#6D4AFF] h-1.5 w-full animate-pulse" />
                       )}
 
                       <div className="flex justify-between items-start">
@@ -225,8 +232,8 @@ export default function Dashboard({
 
                             <div className="flex gap-2.5 items-center mt-2.5 text-[10px] font-black">
                               {isProcessing ? (
-                                <span className="text-[#58CC02] flex items-center gap-1 bg-[#58CC02]/10 px-2 py-0.5 rounded-lg border border-[#58CC02]/20">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#58CC02] animate-ping" />
+                                <span className="text-[#6D4AFF] flex items-center gap-1 bg-[#6D4AFF]/10 px-2 py-0.5 rounded-lg border border-[#6D4AFF]/20">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#6D4AFF] animate-ping" />
                                   Writing Audiobook...
                                 </span>
                               ) : isError ? (
@@ -236,7 +243,7 @@ export default function Dashboard({
                               ) : (
                                 <>
                                   {isRealAudio ? (
-                                    <span className="text-[#1CB0F6] bg-[#E1F5FE] border border-[#1CB0F6]/20 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                    <span className="text-[#00B3A4] bg-[#E0F7F4] border border-[#00B3A4]/20 px-2 py-0.5 rounded-lg flex items-center gap-1">
                                       <Mic className="w-3 h-3" /> Human narrated
                                       {book.runtime ? ` • ${book.runtime}` : ""}
                                     </span>
@@ -245,7 +252,7 @@ export default function Dashboard({
                                       {book.totalWords} words
                                     </span>
                                   )}
-                                  <span className="text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-lg">
+                                  <span className="text-[#D95E22] bg-[#FFF3EC] border border-[#FFD9C7] px-2 py-0.5 rounded-lg">
                                     +{book.xpReward} XP Gift
                                   </span>
                                 </>
@@ -272,8 +279,8 @@ export default function Dashboard({
                       {!isProcessing && !isError && (
                         <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
                           <span className="font-sans text-[10px] font-black text-gray-400">PLAYBACK STATUS</span>
-                          <span className="text-[#58CC02] font-sans font-black text-xs flex items-center gap-1 bg-[#58CC02]/10 px-3 py-1 rounded-xl">
-                            <CheckCircle className="w-4 h-4 text-[#58CC02] fill-[#58CC02]" /> Listen Now
+                          <span className="text-[#6D4AFF] font-sans font-black text-xs flex items-center gap-1 bg-[#6D4AFF]/10 px-3 py-1 rounded-xl">
+                            <CheckCircle className="w-4 h-4 text-[#6D4AFF] fill-[#6D4AFF]" /> Listen Now
                           </span>
                         </div>
                       )}
@@ -341,7 +348,29 @@ export default function Dashboard({
         )}
       </div>
 
-      {/* Fixed Bottom Tab Bar (Duolingo style) */}
+      {/* Legal / attribution footer */}
+      <div className="pt-2 pb-1 text-center">
+        <p className="font-sans text-[10px] text-slate-400 font-bold leading-relaxed">
+          Audiobooks are public-domain recordings by{" "}
+          <a
+            href="https://librivox.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2"
+          >
+            LibriVox
+          </a>{" "}
+          volunteers.
+          <br />
+          <a href="privacy.html" className="underline underline-offset-2 text-slate-500">
+            Privacy Policy
+          </a>
+          <span className="mx-1.5">·</span>
+          <span>No accounts, no ads, no tracking</span>
+        </p>
+      </div>
+
+      {/* Fixed bottom tab bar */}
       <nav className="fixed bottom-0 inset-x-0 mx-auto max-w-[412px] bg-white/95 backdrop-blur-md border-t border-gray-100 z-30 pb-safe-nav">
         <div className="max-w-[412px] mx-auto flex">
           {TABS.map(({ id, label, icon: Icon }) => {
@@ -351,11 +380,11 @@ export default function Dashboard({
                 key={id}
                 onClick={() => setActiveTab(id)}
                 className={`flex-1 flex flex-col items-center gap-1 pt-3 pb-5 transition-colors ${
-                  active ? "text-[#58CC02]" : "text-gray-400"
+                  active ? "text-[#6D4AFF]" : "text-gray-400"
                 }`}
               >
                 <span
-                  className={`px-4 py-1 rounded-2xl transition-colors ${active ? "bg-[#58CC02]/10" : ""}`}
+                  className={`px-4 py-1 rounded-2xl transition-colors ${active ? "bg-[#6D4AFF]/10" : ""}`}
                 >
                   <Icon className={`w-5 h-5 ${active ? "stroke-[2.5]" : ""}`} />
                 </span>

@@ -5,8 +5,13 @@ interface AudiMascotProps {
   className?: string;
 }
 
+// Audi — Audibook's mascot. An original character: a violet cat wearing
+// over-ear headphones, drawn on a rounded-triangle head with tall pointed
+// ears and a whiskered muzzle. Deliberately distinct from any existing
+// app mascot in silhouette, species, and palette.
 export default function AudiMascot({ mood, className = "w-40 h-40" }: AudiMascotProps) {
-  // SVG drawing dimensions: width 200, height 200
+  const eyeOpen = mood !== "sleeping" && mood !== "sad";
+
   return (
     <div className={`relative flex items-center justify-center ${className}`} id="audi-mascot-container">
       <svg
@@ -15,12 +20,12 @@ export default function AudiMascot({ mood, className = "w-40 h-40" }: AudiMascot
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        {/* Background Ambient Glow */}
+        {/* Ambient listening glow */}
         <motion.circle
           cx="100"
-          cy="100"
-          r="80"
-          fill="#58cc02"
+          cy="106"
+          r="78"
+          fill="#6D4AFF"
           fillOpacity="0.1"
           animate={{
             scale: mood === "listening" ? [1, 1.1, 1] : 1,
@@ -29,199 +34,173 @@ export default function AudiMascot({ mood, className = "w-40 h-40" }: AudiMascot
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        {/* Head & Body (Merged Egg-like shape Duolingo style) */}
-        <motion.path
-          d="M50,110 C50,60 150,60 150,110 C150,150 130,170 100,170 C70,170 50,150 50,110 Z"
-          fill="#58cc02" // Vibrant green
+        <motion.g
           animate={
             mood === "celebrating"
-              ? { y: [0, -10, 0], scaleY: [1, 0.9, 1.1, 1] }
+              ? { y: [0, -10, 0], rotate: [0, -4, 4, 0] }
               : mood === "sleeping"
-              ? { scaleY: [1, 0.97, 1] }
+              ? { y: [0, 2, 0] }
               : {}
           }
           transition={{
             duration: mood === "celebrating" ? 0.6 : 3,
-            repeat: mood === "sleeping" ? Infinity : 0,
+            repeat: mood === "celebrating" || mood === "sleeping" ? Infinity : 0,
             ease: "easeInOut",
           }}
-        />
+          style={{ originX: "100px", originY: "120px" }}
+        >
+          {/* Ears — tall triangles, unmistakably feline */}
+          <path d="M52,86 L58,36 L98,64 Z" fill="#6D4AFF" />
+          <path d="M148,86 L142,36 L102,64 Z" fill="#6D4AFF" />
+          <path d="M62,80 L66,50 L88,66 Z" fill="#FF8FB1" fillOpacity="0.75" />
+          <path d="M138,80 L134,50 L112,66 Z" fill="#FF8FB1" fillOpacity="0.75" />
 
-        {/* Soft Tummy Patch (Light Lime green) */}
-        <path
-          d="M75,120 C75,95 125,95 125,120 C125,145 115,155 100,155 C85,155 75,145 75,120 Z"
-          fill="#84e022"
-        />
+          {/* Head — wide rounded triangle, tapering to a soft chin */}
+          <path
+            d="M100,58 C142,58 158,86 158,112 C158,146 132,166 100,166 C68,166 42,146 42,112 C42,86 58,58 100,58 Z"
+            fill="#6D4AFF"
+          />
 
-        {/* Dynamic Feathery texture details on Tummy */}
-        <path d="M92,115 C95,118 105,118 108,115" stroke="#58cc02" strokeWidth="3" strokeLinecap="round" />
-        <path d="M88,128 C92,132 108,132 112,128" stroke="#58cc02" strokeWidth="3" strokeLinecap="round" />
-        <path d="M93,140 C96,143 104,143 107,140" stroke="#58cc02" strokeWidth="3" strokeLinecap="round" />
+          {/* Muzzle patch */}
+          <path
+            d="M100,116 C124,116 132,130 132,141 C132,154 118,162 100,162 C82,162 68,154 68,141 C68,130 76,116 100,116 Z"
+            fill="#F3EFFF"
+          />
 
-        {/* Face Mask/Feather highlights around Eyes (White/Cream patches) */}
-        <circle cx="82" cy="98" r="24" fill="#ffffff" />
-        <circle cx="118" cy="98" r="24" fill="#ffffff" />
-
-        {/* EYES (Duolingo style large expressive eyes) */}
-        {/* Left Eye */}
-        <g id="left-eye">
-          {mood === "sleeping" ? (
-            // Curved closed eye line
-            <path d="M68,98 Q82,108 92,98" stroke="#333" strokeWidth="4.5" strokeLinecap="round" fill="none" />
-          ) : mood === "sad" ? (
-            // Sad downward slanting curves
-            <path d="M70,102 Q82,90 92,102" stroke="#333" strokeWidth="4.5" strokeLinecap="round" fill="none" />
-          ) : (
+          {/* Eyes */}
+          {eyeOpen ? (
             <>
-              {/* Outer Eye Circle */}
-              <motion.circle
-                cx="82"
-                cy="98"
-                r="13"
-                fill="#1f2937"
-                animate={mood === "celebrating" ? { scaleY: 1.1 } : { scaleY: [1, 0.1, 1] }}
+              <motion.g
+                animate={mood === "celebrating" ? { scaleY: 1 } : { scaleY: [1, 0.1, 1] }}
                 transition={{
                   duration: mood === "celebrating" ? 0.3 : 4,
                   repeat: mood === "celebrating" ? 0 : Infinity,
                   repeatDelay: 3.5,
                 }}
-              />
-              {/* Eye sparkle reflection */}
-              <circle cx="79" cy="94" r="4.5" fill="#ffffff" />
+                style={{ originX: "100px", originY: "104px" }}
+              >
+                <ellipse cx="78" cy="104" rx="12" ry="14" fill="#1B1235" />
+                <ellipse cx="122" cy="104" rx="12" ry="14" fill="#1B1235" />
+                <circle cx="74" cy="99" r="4.2" fill="#ffffff" />
+                <circle cx="118" cy="99" r="4.2" fill="#ffffff" />
+              </motion.g>
             </>
-          )}
-        </g>
-
-        {/* Right Eye */}
-        <g id="right-eye">
-          {mood === "sleeping" ? (
-            // Curved closed eye line
-            <path d="M108,98 Q118,108 132,98" stroke="#333" strokeWidth="4.5" strokeLinecap="round" fill="none" />
-          ) : mood === "sad" ? (
-            <path d="M108,102 Q118,90 130,102" stroke="#333" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+          ) : mood === "sleeping" ? (
+            <>
+              <path d="M66,104 Q78,113 90,104" stroke="#1B1235" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+              <path d="M110,104 Q122,113 134,104" stroke="#1B1235" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+            </>
           ) : (
             <>
-              {/* Outer Eye Circle */}
-              <motion.circle
-                cx="118"
-                cy="98"
-                r="13"
-                fill="#1f2937"
-                animate={mood === "celebrating" ? { scaleY: 1.1 } : { scaleY: [1, 0.1, 1] }}
-                transition={{
-                  duration: mood === "celebrating" ? 0.3 : 4,
-                  repeat: mood === "celebrating" ? 0 : Infinity,
-                  repeatDelay: 3.5,
-                }}
-              />
-              <circle cx="115" cy="94" r="4.5" fill="#ffffff" />
+              <path d="M66,108 Q78,96 90,108" stroke="#1B1235" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+              <path d="M110,108 Q122,96 134,108" stroke="#1B1235" strokeWidth="4.5" strokeLinecap="round" fill="none" />
             </>
           )}
-        </g>
 
-        {/* Cute Beak (Orange Triangle) */}
-        <motion.path
-          d="M94,103 L106,103 L100,116 Z"
-          fill="#ff9600"
-          stroke="#e07b00"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          animate={
-            mood === "happy" || mood === "celebrating"
-              ? { scale: [1, 1.15, 1], y: [0, -2, 0] }
-              : {}
-          }
-          transition={{ duration: 0.5, repeat: mood === "celebrating" ? Infinity : 0 }}
-        />
+          {/* Nose + mouth */}
+          <motion.path
+            d="M93,128 L107,128 L100,137 Z"
+            fill="#FF7A45"
+            animate={mood === "happy" || mood === "celebrating" ? { scale: [1, 1.12, 1] } : {}}
+            transition={{ duration: 0.6, repeat: mood === "celebrating" ? Infinity : 0 }}
+            style={{ originX: "100px", originY: "132px" }}
+          />
+          <path
+            d={mood === "sad" ? "M88,152 Q100,144 112,152" : "M88,141 Q100,152 112,141"}
+            stroke="#1B1235"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            fill="none"
+          />
 
-        {/* Rosy Cheeks (Blush) */}
-        <circle cx="64" cy="112" r="6" fill="#ff4b4b" fillOpacity="0.4" />
-        <circle cx="136" cy="112" r="6" fill="#ff4b4b" fillOpacity="0.4" />
+          {/* Whiskers */}
+          <g stroke="#1B1235" strokeWidth="2.6" strokeLinecap="round" opacity="0.55">
+            <path d="M64,132 L44,127" />
+            <path d="M64,140 L43,141" />
+            <path d="M136,132 L156,127" />
+            <path d="M136,140 L157,141" />
+          </g>
 
-        {/* Little tufts of feathers on top of head */}
-        <path d="M92,62 C90,50 98,46 98,46 C98,46 102,52 100,62" fill="#58cc02" />
-        <path d="M104,62 C106,52 112,48 112,48 C112,48 112,54 108,62" fill="#58cc02" />
+          {/* Headphones — always on; they are the brand signature */}
+          <path
+            d="M40,110 C34,54 166,54 160,110"
+            stroke="#00B3A4"
+            strokeWidth="9"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <rect x="28" y="96" width="24" height="40" rx="12" fill="#00B3A4" />
+          <rect x="148" y="96" width="24" height="40" rx="12" fill="#00B3A4" />
+          <rect x="36" y="106" width="8" height="20" rx="4" fill="#CFFAF5" />
+          <rect x="156" y="106" width="8" height="20" rx="4" fill="#CFFAF5" />
+        </motion.g>
 
-        {/* Headphone asset (Only shown when mood is 'listening' or 'happy') */}
+        {/* Sound waves while listening */}
         {mood === "listening" && (
-          <motion.g
-            id="headphones"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "spring", stiffness: 100 }}
-          >
-            {/* Band over the head */}
-            <path
-              d="M44,110 C30,40 170,40 156,110"
-              stroke="#22d3ee" // Bright Cyan
-              strokeWidth="7"
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* Left Ear Muff */}
-            <rect x="36" y="98" width="14" height="26" rx="7" fill="#0891b2" />
-            <rect x="44" y="103" width="6" height="16" rx="3" fill="#ffffff" />
-
-            {/* Right Ear Muff */}
-            <rect x="150" y="98" width="14" height="26" rx="7" fill="#0891b2" />
-            <rect x="150" y="103" width="6" height="16" rx="3" fill="#ffffff" />
-          </motion.g>
-        )}
-
-        {/* Musical/Speech notes floating when listening */}
-        {mood === "listening" && (
-          <g id="floating-notes">
-            {/* Note 1 */}
-            <motion.path
-              d="M30,70 L30,55 A5,5 0 0 1 35,50 L45,52 L45,64"
-              stroke="#22d3ee"
-              strokeWidth="2.5"
-              fill="none"
-              strokeLinecap="round"
-              animate={{ y: [0, -12, 0], opacity: [0, 1, 0] }}
-              transition={{ duration: 2, repeat: Infinity, delay: 0 }}
-            />
-            <circle cx="26" cy="70" r="4" fill="#22d3ee" />
-
-            {/* Note 2 */}
-            <motion.path
-              d="M175,75 L175,60 A5,5 0 0 1 180,55 L190,57 L190,69"
-              stroke="#22d3ee"
-              strokeWidth="2.5"
-              fill="none"
-              strokeLinecap="round"
-              animate={{ y: [0, -15, 0], opacity: [0, 1, 0] }}
-              transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-            />
-            <circle cx="171" cy="75" r="4" fill="#22d3ee" />
+          <g>
+            {[0, 1].map((i) => (
+              <motion.g key={i}>
+                <motion.path
+                  d={i === 0 ? "M22,96 Q12,110 22,124" : "M178,96 Q188,110 178,124"}
+                  stroke="#00B3A4"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  fill="none"
+                  animate={{ opacity: [0.2, 1, 0.2], scale: [0.9, 1.1, 0.9] }}
+                  transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.3 }}
+                />
+              </motion.g>
+            ))}
           </g>
         )}
 
-        {/* Sleeping particles (Zs) */}
+        {/* Sleeping Zs */}
         {mood === "sleeping" && (
-          <g id="sleeping-zs">
+          <g>
             <motion.text
-              x="145"
-              y="65"
-              fill="#0891b2"
-              fontSize="16"
+              x="148"
+              y="60"
+              fill="#00B3A4"
+              fontSize="17"
               fontWeight="bold"
-              animate={{ opacity: [0, 1, 0], y: [0, -15], x: [145, 150] }}
-              transition={{ duration: 3, repeat: Infinity, delay: 0 }}
+              animate={{ opacity: [0, 1, 0], y: [60, 44] }}
+              transition={{ duration: 3, repeat: Infinity }}
             >
               Z
             </motion.text>
             <motion.text
-              x="160"
-              y="45"
-              fill="#0891b2"
-              fontSize="22"
+              x="165"
+              y="40"
+              fill="#00B3A4"
+              fontSize="23"
               fontWeight="bold"
-              animate={{ opacity: [0, 1, 0], y: [0, -20], x: [160, 168] }}
+              animate={{ opacity: [0, 1, 0], y: [40, 22] }}
               transition={{ duration: 3, repeat: Infinity, delay: 1 }}
             >
               Z
             </motion.text>
+          </g>
+        )}
+
+        {/* Celebration sparks */}
+        {mood === "celebrating" && (
+          <g>
+            {[
+              { x: 30, y: 60 },
+              { x: 170, y: 66 },
+              { x: 44, y: 168 },
+              { x: 158, y: 172 },
+            ].map((p, i) => (
+              <motion.circle
+                key={i}
+                cx={p.x}
+                cy={p.y}
+                r="5"
+                fill={i % 2 ? "#FF7A45" : "#FFC53D"}
+                animate={{ scale: [0, 1.3, 0], opacity: [0, 1, 0] }}
+                transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.18 }}
+              />
+            ))}
           </g>
         )}
       </svg>

@@ -82,36 +82,47 @@ export async function fetchBookText(title: string, creator: string): Promise<str
 
     // Confident match only: the mirror title must contain (or be contained by)
     // the recording's normalized title, otherwise quizzes would be nonsense.
-    const match = docs.find((d) => {
+    const matches = docs.filter((d) => {
       const dt = normalizeTitle(String(d.title || ""));
       return dt && (dt.includes(cleanTitle) || cleanTitle.includes(dt));
     });
-    if (!match) return null;
+    if (matches.length === 0) return null;
 
-    const metaRes = await fetch(`https://archive.org/metadata/${encodeURIComponent(match.identifier)}`);
-    if (!metaRes.ok) return null;
-    const meta = await metaRes.json();
+    // Several Gutenberg mirror items share the same title but hold only
+    // READMEs or metadata stubs, so try each candidate until one actually
+    // yields the book's text rather than giving up on the first.
+    for (const match of matches.slice(0, 4)) {
+      try {
+        const metaRes = await fetch(`https://archive.org/metadata/${encodeURIComponent(match.identifier)}`);
+        if (!metaRes.ok) continue;
+        const meta = await metaRes.json();
 
-    const txtFile = (meta.files || [])
-      .filter(
-        (f: any) =>
-          typeof f.name === "string" &&
-          f.name.endsWith(".txt") &&
-          !/readme/i.test(f.name) &&
-          Number(f.size) > 20000 &&
-          Number(f.size) < MAX_TEXT_BYTES
-      )
-      .sort((a: any, b: any) => Number(b.size) - Number(a.size))[0];
-    if (!txtFile) return null;
+        const txtFile = (meta.files || [])
+          .filter(
+            (f: any) =>
+              typeof f.name === "string" &&
+              f.name.endsWith(".txt") &&
+              !/readme/i.test(f.name) &&
+              !/_meta\.txt$/i.test(f.name) &&
+              Number(f.size) > 20000 &&
+              Number(f.size) < MAX_TEXT_BYTES
+          )
+          .sort((a: any, b: any) => Number(b.size) - Number(a.size))[0];
+        if (!txtFile) continue;
 
-    const textRes = await fetch(
-      `https://archive.org/download/${encodeURIComponent(match.identifier)}/${encodeURIComponent(txtFile.name)}`
-    );
-    if (!textRes.ok) return null;
-    const raw = await textRes.text();
+        const textRes = await fetch(
+          `https://archive.org/download/${encodeURIComponent(match.identifier)}/${encodeURIComponent(txtFile.name)}`
+        );
+        if (!textRes.ok) continue;
+        const raw = await textRes.text();
 
-    const body = stripGutenbergBoilerplate(raw);
-    return body.length > 10000 ? body : null;
+        const body = stripGutenbergBoilerplate(raw);
+        if (body.length > 10000) return body;
+      } catch {
+        // try the next candidate
+      }
+    }
+    return null;
   } catch {
     return null;
   }

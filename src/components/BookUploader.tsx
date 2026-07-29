@@ -12,7 +12,7 @@ interface BookUploaderProps {
 }
 
 const STAGE_MESSAGES: Record<ParseProgress["stage"], string> = {
-  reading: "Audi is adjusting her glasses to read your book... 🦉👓",
+  reading: "Audi is adjusting her glasses to read your book... 🐾👓",
   extracting: "Turning every single page of your book... 📖✨",
   chapters: "Splitting the story into cozy chapters... 🔖",
   quizzes: "Writing fun comprehension quizzes for you... 🧠🎯",
@@ -100,8 +100,8 @@ export default function BookUploader({ onUploadSuccess, className = "" }: BookUp
             onClick={onButtonClick}
             className={`relative flex flex-col items-center justify-center border-3 border-dashed rounded-[2rem] p-8 text-center cursor-pointer transition-all duration-300 ${
               dragActive
-                ? "border-[#58CC02] bg-[#58CC02]/10 scale-98"
-                : "border-gray-200 bg-white hover:border-[#58CC02] hover:bg-slate-50/30"
+                ? "border-[#6D4AFF] bg-[#6D4AFF]/10 scale-98"
+                : "border-gray-200 bg-white hover:border-[#6D4AFF] hover:bg-slate-50/30"
             }`}
           >
             <input
@@ -116,7 +116,7 @@ export default function BookUploader({ onUploadSuccess, className = "" }: BookUp
             <motion.div
               animate={{ y: dragActive ? [0, -6, 0] : 0 }}
               transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-              className={`p-4 rounded-2xl mb-4 ${dragActive ? "bg-[#58CC02] text-white" : "bg-gray-100 text-slate-500"}`}
+              className={`p-4 rounded-2xl mb-4 ${dragActive ? "bg-[#6D4AFF] text-white" : "bg-gray-100 text-slate-500"}`}
             >
               <Upload className="w-8 h-8" />
             </motion.div>
@@ -125,7 +125,7 @@ export default function BookUploader({ onUploadSuccess, className = "" }: BookUp
               Create Your New Audiobook!
             </h3>
             <p className="font-sans text-sm text-gray-500 max-w-sm mt-1.5 leading-relaxed font-bold">
-              Drag & drop your <span className="font-black text-[#58CC02]">PDF, EPUB, or TXT</span> file here, or tap to choose a file. It never leaves your device.
+              Drag & drop your <span className="font-black text-[#6D4AFF]">PDF, EPUB, or TXT</span> file here, or tap to choose a file. It never leaves your device.
             </p>
 
             <div className="flex gap-4 mt-6 items-center justify-center text-xs text-slate-400 font-mono">
@@ -161,10 +161,10 @@ export default function BookUploader({ onUploadSuccess, className = "" }: BookUp
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="mt-4 p-3.5 bg-green-50 border border-[#58CC02]/30 rounded-[1.5rem] flex items-center gap-2.5 text-left text-xs text-[#58CC02] max-w-sm"
+                className="mt-4 p-3.5 bg-[#F1EEFF] border border-[#6D4AFF]/30 rounded-[1.5rem] flex items-center gap-2.5 text-left text-xs text-[#6D4AFF] max-w-sm"
                 onClick={(e) => e.stopPropagation()}
               >
-                <CheckCircle2 className="w-4 h-4 shrink-0 text-[#58CC02]" />
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-[#6D4AFF]" />
                 <div>
                   <span className="font-black">Got it!</span> {success}
                 </div>
@@ -185,7 +185,7 @@ export default function BookUploader({ onUploadSuccess, className = "" }: BookUp
             {/* Real parsing progress */}
             <div className="w-full max-w-xs bg-slate-100 h-2 rounded-full overflow-hidden relative mb-2 mt-2">
               <motion.div
-                className="bg-[#58CC02] h-full rounded-full"
+                className="bg-[#6D4AFF] h-full rounded-full"
                 animate={{ width: `${progress.percent}%` }}
                 transition={{ ease: "easeOut", duration: 0.3 }}
               />
@@ -204,7 +204,7 @@ export default function BookUploader({ onUploadSuccess, className = "" }: BookUp
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.4 }}
-                className="font-sans text-sm text-[#58CC02] font-black max-w-xs mt-3 min-h-[40px] leading-relaxed"
+                className="font-sans text-sm text-[#6D4AFF] font-black max-w-xs mt-3 min-h-[40px] leading-relaxed"
               >
                 {STAGE_MESSAGES[progress.stage]}
               </motion.p>

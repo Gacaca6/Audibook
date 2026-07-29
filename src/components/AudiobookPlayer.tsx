@@ -360,7 +360,7 @@ export default function AudiobookPlayer({
       <div className="bg-white border-b border-gray-100 pt-safe-header pb-4 px-4 flex items-center justify-between sticky top-0 z-20 shadow-xs">
         <button
           onClick={onBack}
-          className="flex items-center gap-1 font-sans font-black text-sm text-[#1CB0F6] border border-gray-200 rounded-xl px-3 py-1.5 bg-white active:bg-slate-50 active:scale-98 transition-all"
+          className="flex items-center gap-1 font-sans font-black text-sm text-[#00B3A4] border border-gray-200 rounded-xl px-3 py-1.5 bg-white active:bg-slate-50 active:scale-98 transition-all"
         >
           <ChevronLeft className="w-4 h-4" /> Back
         </button>
@@ -381,13 +381,13 @@ export default function AudiobookPlayer({
             disabled={currentChapter.downloaded || isDownloading}
             className={`p-2 rounded-xl border transition-all ${
               currentChapter.downloaded
-                ? "bg-[#58CC02]/10 border-[#58CC02]/20 text-[#58CC02]"
-                : "bg-white border-gray-200 text-[#1CB0F6] active:scale-95"
+                ? "bg-[#6D4AFF]/10 border-[#6D4AFF]/20 text-[#6D4AFF]"
+                : "bg-white border-gray-200 text-[#00B3A4] active:scale-95"
             }`}
             title={currentChapter.downloaded ? "Saved for offline" : "Download for offline"}
           >
             {isDownloading ? (
-              <span className="w-4 h-4 border-2 border-[#1CB0F6] border-t-transparent rounded-full animate-spin block" />
+              <span className="w-4 h-4 border-2 border-[#00B3A4] border-t-transparent rounded-full animate-spin block" />
             ) : currentChapter.downloaded ? (
               <Check className="w-4 h-4" />
             ) : (
@@ -398,7 +398,7 @@ export default function AudiobookPlayer({
           <button
             onClick={() => setShowVoicePicker(true)}
             disabled={voiceOptions.length === 0}
-            className="p-2 rounded-xl border border-gray-200 bg-white text-[#1CB0F6] active:scale-95 transition-all disabled:opacity-40"
+            className="p-2 rounded-xl border border-gray-200 bg-white text-[#00B3A4] active:scale-95 transition-all disabled:opacity-40"
             title="Choose narrator voice"
           >
             <Mic2 className="w-4 h-4" />
@@ -418,11 +418,11 @@ export default function AudiobookPlayer({
 
           {isAudioChapter ? (
             <div className="mt-3 flex flex-col items-center gap-1.5">
-              <span className="bg-[#E1F5FE] border border-[#1CB0F6]/20 text-[#1CB0F6] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+              <span className="bg-[#E0F7F4] border border-[#00B3A4]/20 text-[#00B3A4] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
                 🎙 Human Narrated {book.runtime ? `• ${book.runtime}` : ""}
               </span>
               {playingFromDevice ? (
-                <span className="bg-[#58CC02]/10 border border-[#58CC02]/20 text-[#58CC02] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                <span className="bg-[#6D4AFF]/10 border border-[#6D4AFF]/20 text-[#6D4AFF] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
                   ✓ Playing from your device — works offline
                 </span>
               ) : (
@@ -436,7 +436,7 @@ export default function AudiobookPlayer({
               <button
                 onClick={() => setShowVoicePicker(true)}
                 disabled={voiceOptions.length === 0}
-                className="mt-2.5 bg-[#E1F5FE] border border-[#1CB0F6]/20 text-[#1CB0F6] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider active:scale-95 transition-all disabled:opacity-60"
+                className="mt-2.5 bg-[#E0F7F4] border border-[#00B3A4]/20 text-[#00B3A4] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider active:scale-95 transition-all disabled:opacity-60"
               >
                 🎙 {activeVoiceName} • Tap to change
               </button>
@@ -450,13 +450,13 @@ export default function AudiobookPlayer({
           {isAudioChapter && !currentChapter.downloaded && (
             <div className="w-full mt-4">
               {isDownloading ? (
-                <div className="bg-[#E1F5FE]/60 border border-[#1CB0F6]/20 rounded-2xl p-3.5 text-left">
-                  <span className="font-sans font-black text-[#1CB0F6] text-[11px] uppercase tracking-wide">
+                <div className="bg-[#E0F7F4]/60 border border-[#00B3A4]/20 rounded-2xl p-3.5 text-left">
+                  <span className="font-sans font-black text-[#00B3A4] text-[11px] uppercase tracking-wide">
                     Saving for offline... {downloadPercent[currentChapter.id] || 0}%
                   </span>
-                  <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-[#1CB0F6]/10 mt-2">
+                  <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-[#00B3A4]/10 mt-2">
                     <motion.div
-                      className="h-full bg-[#1CB0F6] rounded-full"
+                      className="h-full bg-[#00B3A4] rounded-full"
                       animate={{ width: `${downloadPercent[currentChapter.id] || 0}%` }}
                       transition={{ ease: "easeOut", duration: 0.3 }}
                     />
@@ -465,7 +465,7 @@ export default function AudiobookPlayer({
               ) : (
                 <button
                   onClick={() => handleDownload(currentChapter)}
-                  className="w-full py-3 bg-[#1CB0F6] border-b-4 border-[#1899d6] active:border-b-0 active:translate-y-[4px] text-white rounded-2xl font-sans font-black text-xs tracking-wide transition-all flex items-center justify-center gap-1.5"
+                  className="w-full py-3 bg-[#00B3A4] border-b-4 border-[#00907F] active:border-b-0 active:translate-y-[4px] text-white rounded-2xl font-sans font-black text-xs tracking-wide transition-all flex items-center justify-center gap-1.5"
                 >
                   <Download className="w-4 h-4" />
                   Download this chapter for offline
@@ -506,7 +506,7 @@ export default function AudiobookPlayer({
                 onClick={() => setActiveChapterIndex(idx)}
                 className={`snap-start px-4.5 py-3 rounded-2xl font-sans font-black text-xs shrink-0 transition-all border-2 ${
                   idx === activeChapterIndex
-                    ? "bg-[#58CC02] border-[#46A302] text-white shadow-sm"
+                    ? "bg-[#6D4AFF] border-[#5433E0] text-white shadow-sm"
                     : "bg-white border-gray-200 text-slate-600 active:bg-slate-50 font-bold"
                 }`}
               >
@@ -519,10 +519,10 @@ export default function AudiobookPlayer({
 
         {/* Summary / About box */}
         {(currentChapter.summary || book.description) && (
-          <div className="bg-[#E1F5FE]/60 border border-[#1CB0F6]/20 rounded-2xl p-4 flex gap-3 items-start relative overflow-hidden">
-            <div className="bg-[#1CB0F6] text-white p-2 rounded-xl text-xs font-black">💡</div>
+          <div className="bg-[#E0F7F4]/60 border border-[#00B3A4]/20 rounded-2xl p-4 flex gap-3 items-start relative overflow-hidden">
+            <div className="bg-[#00B3A4] text-white p-2 rounded-xl text-xs font-black">💡</div>
             <div>
-              <h5 className="font-display font-black text-[#1CB0F6] text-xs uppercase tracking-wider">
+              <h5 className="font-display font-black text-[#00B3A4] text-xs uppercase tracking-wider">
                 {currentChapter.summary ? "Audi's Summary Key" : "About this audiobook"}
               </h5>
               <p className="font-sans text-xs text-slate-700 font-bold mt-1 leading-relaxed">
@@ -549,7 +549,7 @@ export default function AudiobookPlayer({
                     onClick={() => jumpToChunk(idx)}
                     className={`cursor-pointer transition-colors rounded px-0.5 ${
                       idx === activeChunk
-                        ? "bg-[#58CC02]/20 text-slate-900"
+                        ? "bg-[#6D4AFF]/20 text-slate-900"
                         : "text-slate-600 hover:bg-slate-100"
                     }`}
                   >
@@ -576,7 +576,7 @@ export default function AudiobookPlayer({
                 {remaining.length > 0 && queued === 0 && (
                   <button
                     onClick={handleDownloadAll}
-                    className="w-full py-3 bg-white border-2 border-[#1CB0F6]/30 text-[#1CB0F6] rounded-2xl font-sans font-black text-xs tracking-wide active:bg-[#E1F5FE]/50 transition-all flex items-center justify-center gap-1.5"
+                    className="w-full py-3 bg-white border-2 border-[#00B3A4]/30 text-[#00B3A4] rounded-2xl font-sans font-black text-xs tracking-wide active:bg-[#E0F7F4]/50 transition-all flex items-center justify-center gap-1.5"
                   >
                     <Download className="w-4 h-4" />
                     Download all {remaining.length} remaining chapters
@@ -585,7 +585,7 @@ export default function AudiobookPlayer({
                 )}
                 {queued > 0 && activeChapterTitle && (
                   <div className="bg-white border border-gray-200 rounded-2xl p-3 flex items-center gap-2.5">
-                    <span className="w-4 h-4 border-2 border-[#1CB0F6] border-t-transparent rounded-full animate-spin shrink-0" />
+                    <span className="w-4 h-4 border-2 border-[#00B3A4] border-t-transparent rounded-full animate-spin shrink-0" />
                     <p className="font-sans text-[11px] text-slate-500 font-bold">
                       Saving "{activeChapterTitle}" {activeEntry ? `${activeEntry[1]}%` : ""}
                       {queued > 1 ? ` — ${queued - 1} more in queue` : ""}. One at a time keeps your phone happy!
@@ -624,7 +624,7 @@ export default function AudiobookPlayer({
             }}
           >
             <motion.div
-              className="h-full bg-[#58CC02] rounded-full"
+              className="h-full bg-[#6D4AFF] rounded-full"
               animate={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
               transition={{ ease: "linear", duration: 0.2 }}
             />
@@ -651,7 +651,7 @@ export default function AudiobookPlayer({
             <button
               onClick={togglePlay}
               className={`p-5 rounded-full text-white shadow-md active:translate-y-[2px] transition-all ${
-                isPlaying ? "bg-[#1A1A1A]" : "bg-[#58CC02]"
+                isPlaying ? "bg-[#1A1A1A]" : "bg-[#6D4AFF]"
               }`}
             >
               {isPlaying ? <Pause className="w-6 h-6 fill-white" /> : <Play className="w-6 h-6 fill-white ml-0.5" />}
@@ -672,7 +672,7 @@ export default function AudiobookPlayer({
             className={`flex items-center gap-1 font-sans font-black text-xs px-4 py-2.5 rounded-xl border-b-4 transition-all active:border-b-0 active:translate-y-[4px] ${
               isQuizCompleted || currentChapter.quiz.length === 0
                 ? "bg-gray-100 text-gray-400 border-gray-300"
-                : "bg-[#FF9600] text-white border-orange-700"
+                : "bg-[#FF7A45] text-white border-[#D95E22]"
             }`}
           >
             {isQuizCompleted ? (
@@ -725,13 +725,13 @@ export default function AudiobookPlayer({
                     onClick={() => handlePickVoice(option)}
                     className={`w-full text-left px-4 py-3 rounded-2xl border-2 transition-all ${
                       option.id === activeVoice?.voiceURI
-                        ? "bg-[#58CC02]/10 border-[#58CC02]"
+                        ? "bg-[#6D4AFF]/10 border-[#6D4AFF]"
                         : "bg-white border-gray-200 active:bg-slate-50"
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-sans font-black text-sm text-slate-700">{option.name}</span>
-                      {option.id === activeVoice?.voiceURI && <Check className="w-4 h-4 text-[#58CC02]" />}
+                      {option.id === activeVoice?.voiceURI && <Check className="w-4 h-4 text-[#6D4AFF]" />}
                     </div>
                     <span className="font-mono text-[10px] text-slate-400">
                       {option.lang}

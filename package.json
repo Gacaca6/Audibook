@@ -2,14 +2,16 @@
   "name": "audibook",
   "private": true,
   "version": "3.0.0",
-  "description": "Audibook — turn your books (EPUB, PDF, TXT) into gamified audiobooks, Duolingo-style. 100% free, 100% in your browser: no server, no API keys, works offline.",
+  "description": "Audibook — stream free human-narrated audiobooks offline and turn your own books (EPUB, PDF, TXT) into audiobooks. 100% free, 100% in your browser: no server, no API keys, works offline.",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "assets:icons": "node tools/generate-icons.mjs",
+    "assets:screenshots": "npm run build && node tools/generate-screenshots.mjs"
   },
   "dependencies": {
     "jszip": "^3.10.1",
@@ -25,6 +27,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.4",
+    "puppeteer-core": "^25.4.0",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"

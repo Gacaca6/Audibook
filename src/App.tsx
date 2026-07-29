@@ -4,9 +4,12 @@ import Dashboard from "./components/Dashboard";
 import AudiobookPlayer from "./components/AudiobookPlayer";
 import QuizModal from "./components/QuizModal";
 import MiniPlayer from "./components/MiniPlayer";
+import UpdatePrompt from "./components/UpdatePrompt";
 import { motion, AnimatePresence } from "motion/react";
 import * as db from "./lib/db";
 import { audioPlayer } from "./lib/audioPlayer";
+import { parseBookFile } from "./lib/parseBook";
+import { listenForIncomingFiles, readShortcutTab } from "./lib/fileIntake";
 import { sampleBook } from "./data/sampleBook";
 
 // Default initial achievements
@@ -73,6 +76,9 @@ export default function App() {
   const [playerStartChapter, setPlayerStartChapter] = useState(0);
   const [activeQuizChapter, setActiveQuizChapter] = useState<Chapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Name of a book arriving from the OS (share sheet / "Open with"), if any
+  const [importingFile, setImportingFile] = useState<string | null>(null);
+  const [initialTab] = useState(() => readShortcutTab());
 
   // Initialize and persist user profile in localStorage
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
@@ -278,9 +284,52 @@ export default function App() {
   handleUpdateXPRef.current = handleUpdateXP;
   useEffect(() => {
     audioPlayer.onChapterEnd = () => handleUpdateXPRef.current(10, "listen");
+    // Storage pressure can evict a downloaded chapter; keep the shelf honest
+    audioPlayer.onMissingDownload = (bookId, chapterId) => {
+      setBooks((prev) => {
+        const next = prev.map((b) =>
+          b.id === bookId
+            ? {
+                ...b,
+                chapters: b.chapters.map((ch) =>
+                  ch.id === chapterId ? { ...ch, downloaded: false } : ch
+                ),
+              }
+            : b
+        );
+        const updated = next.find((b) => b.id === bookId);
+        if (updated) {
+          db.saveBook(updated).catch(() => {});
+          audioPlayer.syncBook(updated);
+          setSelectedBook((cur) => (cur?.id === bookId ? updated : cur));
+        }
+        return next;
+      });
+    };
     return () => {
       audioPlayer.onChapterEnd = undefined;
+      audioPlayer.onMissingDownload = undefined;
     };
+  }, []);
+
+  // Books opened from the OS ("Open with Audibook") or shared into the app
+  useEffect(() => {
+    const stop = listenForIncomingFiles(async (file) => {
+      setSelectedBook(null);
+      setImportingFile(file.name);
+      try {
+        const book = await parseBookFile(file, () => {});
+        await db.saveBook(book);
+        await fetchBooks();
+        handleUpdateXPRef.current(25, "add-book");
+        setToastText(`"${book.title}" was added to your shelf! 📚`);
+      } catch (err: any) {
+        setToastText(err?.message || "That file couldn't be opened.");
+      } finally {
+        setImportingFile(null);
+      }
+    });
+    return stop;
   }, []);
 
   // Complete chapter quiz and award XP
@@ -339,6 +388,27 @@ export default function App() {
           </div>
         </div>
 
+        {/* New-version banner (service worker update waiting) */}
+        <UpdatePrompt />
+
+        {/* Importing a book handed to us by the OS (share sheet / "Open with") */}
+        <AnimatePresence>
+          {importingFile && (
+            <motion.div
+              initial={{ opacity: 0, y: -30 }}
+              animate={{ opacity: 1, y: 15 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="absolute top-safe left-4 right-4 bg-white border-2 border-[#6D4AFF]/30 rounded-2xl p-3.5 flex items-center gap-3 shadow-lg z-40"
+            >
+              <span className="w-5 h-5 border-2 border-[#6D4AFF] border-t-transparent rounded-full animate-spin shrink-0" />
+              <div className="text-left min-w-0">
+                <h5 className="font-sans font-black text-slate-800 text-xs">Adding your book...</h5>
+                <p className="font-sans font-bold text-slate-400 text-[10px] truncate">{importingFile}</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Floating Trophys Unlock Banner (Toast) */}
         <AnimatePresence>
           {toastText && (
@@ -346,11 +416,11 @@ export default function App() {
               initial={{ opacity: 0, y: -40, scale: 0.9 }}
               animate={{ opacity: 1, y: 15, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.9 }}
-              className="absolute top-safe left-4 right-4 bg-[#FF9600] border-2 border-orange-500 rounded-2xl p-3.5 flex items-center gap-3 shadow-lg z-40 text-white"
+              className="absolute top-safe left-4 right-4 bg-[#FF7A45] border-2 border-[#E35D28] rounded-2xl p-3.5 flex items-center gap-3 shadow-lg z-40 text-white"
             >
               <div className="bg-white p-2 rounded-xl text-lg shadow-sm">🏆</div>
               <div className="text-left">
-                <h5 className="font-sans font-extrabold text-orange-950 text-xs uppercase tracking-wide">Quest Mastery!</h5>
+                <h5 className="font-sans font-extrabold text-[#4A1B06] text-xs uppercase tracking-wide">Quest Mastery!</h5>
                 <p className="font-sans font-bold text-white text-xs">{toastText}</p>
               </div>
             </motion.div>
@@ -361,7 +431,7 @@ export default function App() {
         <div className="flex-1 flex flex-col h-full bg-[#F0F2F5] md:pt-10 overflow-y-auto">
           {isLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <div className="w-12 h-12 border-4 border-[#58CC02] border-t-transparent rounded-full animate-spin mb-4" />
+              <div className="w-12 h-12 border-4 border-[#6D4AFF] border-t-transparent rounded-full animate-spin mb-4" />
               <h4 className="font-sans font-black text-slate-700 text-sm">Warming up vocal cords...</h4>
             </div>
           ) : (
@@ -399,6 +469,7 @@ export default function App() {
                     books={books}
                     userProfile={userProfile}
                     selectedBook={selectedBook}
+                    initialTab={initialTab}
                     onSelectBook={handleSelectBook}
                     onRefreshBooks={handleBookAdded}
                     onBookFetched={handleBookFetched}

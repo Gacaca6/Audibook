@@ -26,7 +26,9 @@ export function generateQuiz(text: string, questionCount = 3): QuizQuestion[] {
   const candidates: Candidate[] = [];
   for (const s of sentences) {
     const wordCount = (s.match(/\S+/g) || []).length;
-    if (wordCount < 8 || wordCount > 40) continue;
+    // Upper bound keeps the quoted line readable as a question; long winding
+    // sentences make the prompt hard to follow on a phone.
+    if (wordCount < 8 || wordCount > 26) continue;
     const keywords = contentWords(s, 5);
     if (keywords.length === 0) continue;
     // Keyword: the longest content word — usually the most distinctive

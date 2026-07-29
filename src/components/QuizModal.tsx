@@ -117,7 +117,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
 
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col pt-safe-header" id="quiz-modal-view">
-      {/* Quiz Progress Header (iOS/Duolingo style) */}
+      {/* Quiz progress header */}
       <div className="px-5 py-4 flex items-center justify-between gap-4 border-b border-gray-100">
         <button
           onClick={onClose}
@@ -129,7 +129,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
         {/* Progress Bar Container */}
         <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden relative border border-gray-200/50">
           <div
-            className="h-full bg-[#58CC02] rounded-full transition-all duration-300"
+            className="h-full bg-[#6D4AFF] rounded-full transition-all duration-300"
             style={{ width: `${((currentQuestionIndex + (isAnswerChecked ? 1 : 0)) / questions.length) * 100}%` }}
           />
           <div className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-slate-500">
@@ -138,8 +138,8 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
         </div>
 
         {/* Dynamic Heart/XP tracker on right */}
-        <div className="flex items-center gap-1 text-[#FF9600] font-sans font-black text-sm">
-          <Sparkles className="w-4 h-4 fill-[#FF9600] animate-pulse" />
+        <div className="flex items-center gap-1 text-[#FF7A45] font-sans font-black text-sm">
+          <Sparkles className="w-4 h-4 fill-[#FF7A45] animate-pulse" />
           <span>{correctAnswersCount * 10} pt</span>
         </div>
       </div>
@@ -164,7 +164,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
                 <div className="bg-white border border-gray-200 rounded-2xl p-3.5 relative text-left shadow-xs">
                   {/* Speech Bubble Arrow */}
                   <div className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-l border-b border-gray-200 rotate-45" />
-                  <p className="font-sans font-black text-[#FF9600] text-xs uppercase tracking-wide">COMPREHENSION QUEST</p>
+                  <p className="font-sans font-black text-[#FF7A45] text-xs uppercase tracking-wide">COMPREHENSION QUEST</p>
                   <h4 className="font-display font-black text-slate-800 text-sm leading-tight mt-0.5">
                     {currentQuestion.question}
                   </h4>
@@ -186,11 +186,11 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
                       onClick={() => handleOptionSelect(idx)}
                       className={`w-full p-4 rounded-2xl border-2 border-b-4 text-left font-sans font-black text-xs transition-all flex items-center justify-between ${
                         showCorrectMarker
-                          ? "bg-green-50 border-[#58CC02] text-[#46A302]"
+                          ? "bg-[#F1EEFF] border-[#6D4AFF] text-[#5433E0]"
                           : showWrongMarker
                           ? "bg-red-50 border-red-500 text-red-700"
                           : isSelected
-                          ? "bg-[#E1F5FE] border-[#1CB0F6] text-[#1CB0F6]"
+                          ? "bg-[#E0F7F4] border-[#00B3A4] text-[#00B3A4]"
                           : "bg-white border-gray-200 text-slate-600 active:border-b-2 active:translate-y-[2px]"
                       }`}
                     >
@@ -199,11 +199,11 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
                         <span
                           className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-[11px] border shrink-0 ${
                             showCorrectMarker
-                              ? "bg-[#58CC02] text-white border-[#46A302]"
+                              ? "bg-[#6D4AFF] text-white border-[#5433E0]"
                               : showWrongMarker
                               ? "bg-red-500 text-white border-red-600"
                               : isSelected
-                              ? "bg-[#1CB0F6] text-white border-[#1CB0F6]"
+                              ? "bg-[#00B3A4] text-white border-[#00B3A4]"
                               : "bg-slate-50 border-gray-200 text-slate-400"
                           }`}
                         >
@@ -213,7 +213,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
                       </div>
 
                       {/* Correct/Incorrect check markers */}
-                      {showCorrectMarker && <Check className="w-5 h-5 text-[#58CC02]" />}
+                      {showCorrectMarker && <Check className="w-5 h-5 text-[#6D4AFF]" />}
                       {showWrongMarker && <AlertCircle className="w-5 h-5 text-red-500" />}
                     </button>
                   );
@@ -226,7 +226,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
               className={`p-5 pb-8 border-t border-gray-200 transition-colors duration-300 ${
                 isAnswerChecked
                   ? isCorrect
-                    ? "bg-[#E8F5E9] border-green-200"
+                    ? "bg-[#E8F5E9] border-[#C9BCFF]"
                     : "bg-red-50 border-red-200"
                   : "bg-white border-slate-100"
               }`}
@@ -244,8 +244,8 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
                     <div className="flex items-center gap-2">
                       {isCorrect ? (
                         <>
-                          <Check className="w-5 h-5 text-[#58CC02] font-extrabold" />
-                          <span className="font-sans font-black text-[#46A302] text-sm">Amazing Job! You got it.</span>
+                          <Check className="w-5 h-5 text-[#6D4AFF] font-extrabold" />
+                          <span className="font-sans font-black text-[#5433E0] text-sm">Amazing Job! You got it.</span>
                         </>
                       ) : (
                         <>
@@ -257,7 +257,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
 
                     <p
                       className={`font-sans text-xs ${
-                        isCorrect ? "text-green-600" : "text-red-600"
+                        isCorrect ? "text-[#5433E0]" : "text-red-600"
                       } leading-relaxed font-bold bg-white/40 p-3 rounded-xl border border-white/50`}
                     >
                       {currentQuestion.explanation}
@@ -267,7 +267,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
                       onClick={handleContinue}
                       className={`w-full py-4 rounded-2xl font-sans font-black text-sm border-b-4 text-center text-white transition-all active:border-b-0 active:translate-y-[4px] ${
                         isCorrect
-                          ? "bg-[#58CC02] border-[#46A302] hover:bg-[#46A302]"
+                          ? "bg-[#6D4AFF] border-[#5433E0] hover:bg-[#5433E0]"
                           : "bg-red-500 border-red-700 hover:bg-red-600"
                       }`}
                     >
@@ -283,7 +283,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
                       className={`w-full py-4 rounded-2xl font-sans font-black text-sm border-b-4 text-center transition-all ${
                         selectedOptionIndex === null
                           ? "bg-gray-100 text-slate-400 border-gray-200 cursor-not-allowed"
-                          : "bg-[#58CC02] text-white border-[#46A302] hover:bg-[#46A302] active:border-b-0 active:translate-y-[4px]"
+                          : "bg-[#6D4AFF] text-white border-[#5433E0] hover:bg-[#5433E0] active:border-b-0 active:translate-y-[4px]"
                       }`}
                     >
                       Check Answer
@@ -315,16 +315,16 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
 
               {/* Reward stats display */}
               <div className="grid grid-cols-2 gap-4 w-full max-w-xs mt-2">
-                <div className="bg-[#E1F5FE]/55 border border-[#1CB0F6]/20 rounded-2xl p-3.5 shadow-sm">
-                  <span className="text-[10px] font-black text-[#1CB0F6] uppercase tracking-widest block">XP GIFTED</span>
-                  <span className="font-sans font-black text-[#1CB0F6] text-xl mt-1 block flex items-center justify-center gap-1">
-                    <Sparkles className="w-5 h-5 text-[#1CB0F6] fill-[#1CB0F6]" /> +{totalXP} XP
+                <div className="bg-[#E0F7F4]/55 border border-[#00B3A4]/20 rounded-2xl p-3.5 shadow-sm">
+                  <span className="text-[10px] font-black text-[#00B3A4] uppercase tracking-widest block">XP GIFTED</span>
+                  <span className="font-sans font-black text-[#00B3A4] text-xl mt-1 block flex items-center justify-center gap-1">
+                    <Sparkles className="w-5 h-5 text-[#00B3A4] fill-[#00B3A4]" /> +{totalXP} XP
                   </span>
                 </div>
 
-                <div className="bg-[#58CC02]/10 border border-[#58CC02]/20 rounded-2xl p-3.5 shadow-sm">
-                  <span className="text-[10px] font-black text-[#58CC02] uppercase tracking-widest block">SCORE</span>
-                  <span className="font-sans font-black text-[#58CC02] text-xl mt-1 block">
+                <div className="bg-[#6D4AFF]/10 border border-[#6D4AFF]/20 rounded-2xl p-3.5 shadow-sm">
+                  <span className="text-[10px] font-black text-[#6D4AFF] uppercase tracking-widest block">SCORE</span>
+                  <span className="font-sans font-black text-[#6D4AFF] text-xl mt-1 block">
                     {correctAnswersCount} / {questions.length}
                   </span>
                 </div>
@@ -334,7 +334,7 @@ export default function QuizModal({ chapter, onClose, onCompleteQuiz }: QuizModa
             {/* Bouncy Claim button */}
             <button
               onClick={handleClaimReward}
-              className="w-full py-4.5 bg-[#58CC02] hover:bg-[#46A302] border-b-4 border-[#46A302] active:border-b-0 active:translate-y-[4px] text-white rounded-2xl font-sans font-black text-sm tracking-wide transition-all shadow-md"
+              className="w-full py-4.5 bg-[#6D4AFF] hover:bg-[#5433E0] border-b-4 border-[#5433E0] active:border-b-0 active:translate-y-[4px] text-white rounded-2xl font-sans font-black text-sm tracking-wide transition-all shadow-md"
             >
               Claim Rewards & Finish
             </button>

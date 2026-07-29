@@ -1,27 +1,165 @@
 {
-  "name": "Audibook - Gamified Audiobook Creator",
+  "id": "/",
+  "name": "Audibook: Offline Audiobooks",
   "short_name": "Audibook",
-  "description": "Turn your books into gamified audiobooks — 100% free, private, and offline. Duolingo-style learning with quizzes, XP, and streaks!",
+  "description": "Listen to 20,000+ free human-narrated audiobooks offline, or turn your own EPUB, PDF and TXT books into audiobooks. Comprehension quizzes, XP and streaks included.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#58cc02",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#6D4AFF",
+  "theme_color": "#6D4AFF",
   "orientation": "portrait",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "entertainment", "books"],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "categories": ["education", "entertainment", "books"],
-  "prefer_related_applications": false
+  "screenshots": [
+    {
+      "src": "screenshots/narrow-1-discover.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Search thousands of free human-narrated audiobooks"
+    },
+    {
+      "src": "screenshots/narrow-2-library.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Your shelf works completely offline"
+    },
+    {
+      "src": "screenshots/narrow-3-player.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Download chapters and listen anywhere"
+    },
+    {
+      "src": "screenshots/narrow-4-quiz.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Comprehension quizzes earn you XP"
+    },
+    {
+      "src": "screenshots/wide-1-discover.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Audibook on a larger screen"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Discover audiobooks",
+      "short_name": "Discover",
+      "description": "Search 20,000+ free human-narrated audiobooks",
+      "url": "./?tab=discover",
+      "icons": [
+        {
+          "src": "icons/shortcut-discover.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "My books",
+      "short_name": "Library",
+      "description": "Open your offline shelf",
+      "url": "./?tab=books",
+      "icons": [
+        {
+          "src": "icons/shortcut-library.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Continue listening",
+      "short_name": "Continue",
+      "description": "Jump back into the audiobook you were playing",
+      "url": "./?tab=continue",
+      "icons": [
+        {
+          "src": "icons/shortcut-continue.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "./share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "book",
+          "accept": [
+            "application/epub+zip",
+            "application/pdf",
+            "text/plain",
+            ".epub",
+            ".pdf",
+            ".txt"
+          ]
+        }
+      ]
+    }
+  },
+  "file_handlers": [
+    {
+      "action": "./",
+      "launch_type": "single-client",
+      "accept": {
+        "application/epub+zip": [".epub"],
+        "application/pdf": [".pdf"],
+        "text/plain": [".txt"]
+      },
+      "icons": [
+        {
+          "src": "icons/shortcut-library.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
 }

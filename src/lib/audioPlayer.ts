@@ -40,6 +40,12 @@ class GlobalAudioPlayer {
   onChapterEnd?: (bookId: string, chapterId: number) => void;
   /** Auto-advance failed to start the next chapter (e.g. offline). */
   onAutoAdvanceBlocked?: (message: string) => void;
+  /**
+   * A chapter is flagged as downloaded but its audio is gone (the browser can
+   * evict blobs under storage pressure). The shell clears the stale flag so
+   * the UI stops claiming an offline copy that no longer exists.
+   */
+  onMissingDownload?: (bookId: string, chapterId: number) => void;
 
   private ensureElement(): HTMLAudioElement {
     if (this.el) return this.el;
@@ -141,6 +147,9 @@ class GlobalAudioPlayer {
         this.objectUrl = URL.createObjectURL(blob);
         src = this.objectUrl;
         fromDevice = true;
+      } else if (chapter.downloaded) {
+        // Flag says offline copy, storage says otherwise — correct the record
+        this.onMissingDownload?.(book.id, chapter.id);
       }
     } catch {
       // fall through to streaming
