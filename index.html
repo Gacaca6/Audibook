@@ -155,6 +155,21 @@
       // Stamp the paint time so the app can hold the splash long enough for
       // the intro animation to land, instead of flashing past it.
       document.getElementById('splash').dataset.shownAt = Date.now();
+
+      // Register the service worker here rather than waiting for the app
+      // bundle to download and execute. Store-readiness scanners snapshot the
+      // page early, and a registration that only appears ~2s in gets reported
+      // as "no service worker". The app re-registers later (idempotent) to
+      // attach its update-prompt listeners.
+      // Skipped on localhost so the SW never caches over Vite's dev server.
+      (function () {
+        var host = location.hostname;
+        if (!('serviceWorker' in navigator)) return;
+        if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]') return;
+        navigator.serviceWorker
+          .register(new URL('sw.js', location.href).pathname)
+          .catch(function () {});
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

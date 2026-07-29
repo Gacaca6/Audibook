@@ -7,6 +7,11 @@
 let waitingWorker: ServiceWorker | null = null;
 let onUpdate: (() => void) | null = null;
 let reloading = false;
+// Only reload when the user actually accepted an update. On a first visit the
+// freshly installed worker calls clients.claim(), which fires controllerchange
+// too — reloading there would double-load the app and, worse, discard one-shot
+// launch parameters (?share=1, ?find=, ?tab=) before the app can act on them.
+let updateAccepted = false;
 
 export function onUpdateReady(callback: () => void): void {
   onUpdate = callback;
@@ -15,6 +20,7 @@ export function onUpdateReady(callback: () => void): void {
 
 /** Activate the waiting worker and reload once it takes control. */
 export function applyUpdate(): void {
+  updateAccepted = true;
   if (!waitingWorker) {
     window.location.reload();
     return;
@@ -62,7 +68,7 @@ export function registerServiceWorker(): void {
     });
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloading) return;
+    if (!updateAccepted || reloading) return;
     reloading = true;
     window.location.reload();
   });
