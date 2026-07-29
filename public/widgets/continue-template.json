@@ -1,0 +1,61 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.6",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "Image",
+              "url": "${coverUrl}",
+              "size": "Small",
+              "style": "RoundedCorners",
+              "altText": "Cover art"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${title}",
+              "weight": "Bolder",
+              "size": "Medium",
+              "wrap": true,
+              "maxLines": 2
+            },
+            {
+              "type": "TextBlock",
+              "text": "${chapter}",
+              "isSubtle": true,
+              "spacing": "None",
+              "wrap": true,
+              "maxLines": 1
+            },
+            {
+              "type": "TextBlock",
+              "text": "${progress}",
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "Small"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Resume listening",
+      "url": "https://audibook-beta.vercel.app/?tab=continue"
+    }
+  ]
+}

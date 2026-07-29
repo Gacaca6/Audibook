@@ -1,4 +1,4 @@
-import { useState, useRef, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import { Search, Download, Check, Headphones, AlertTriangle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import AudiMascot from "./AudiMascot";
@@ -9,6 +9,8 @@ import { Book } from "../types";
 
 interface DiscoverProps {
   shelfBookIds: string[];
+  /** Terms from a web+audibook: link — searched automatically on mount. */
+  initialQuery?: string | null;
   onBookAdded: (book: Book) => void;
 }
 
@@ -27,8 +29,8 @@ function formatListens(count: number): string {
   return String(count);
 }
 
-export default function Discover({ shelfBookIds, onBookAdded }: DiscoverProps) {
-  const [query, setQuery] = useState("");
+export default function Discover({ shelfBookIds, initialQuery, onBookAdded }: DiscoverProps) {
+  const [query, setQuery] = useState(initialQuery || "");
   const [results, setResults] = useState<AudiobookSearchResult[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,12 @@ export default function Discover({ shelfBookIds, onBookAdded }: DiscoverProps) {
     inputRef.current?.blur();
     runSearch(query);
   };
+
+  // Opened via a web+audibook: link — run that search straight away
+  useEffect(() => {
+    if (initialQuery) runSearch(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery]);
 
   const handleGet = async (result: AudiobookSearchResult) => {
     if (addingId) return;

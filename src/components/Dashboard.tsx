@@ -14,6 +14,8 @@ interface DashboardProps {
   selectedBook: Book | null;
   /** Tab requested by a launcher shortcut (?tab=…), if any. */
   initialTab?: "discover" | "books" | "continue" | null;
+  /** Search terms handed over by a web+audibook: link, if any. */
+  initialSearch?: string | null;
   onSelectBook: (book: Book) => void;
   onRefreshBooks: () => void;
   onBookFetched: (book: Book) => void;
@@ -33,6 +35,7 @@ export default function Dashboard({
   books,
   userProfile,
   initialTab,
+  initialSearch,
   onSelectBook,
   onRefreshBooks,
   onBookFetched,
@@ -42,7 +45,8 @@ export default function Dashboard({
   // shortcut can open straight to a specific tab ("continue" resumes
   // listening, which lives on the shelf).
   const [activeTab, setActiveTab] = useState<Tab>(
-    initialTab === "books" || initialTab === "continue" ? "books" : "discover"
+    // A web+audibook: link always lands on Discover so the search is visible
+    !initialSearch && (initialTab === "books" || initialTab === "continue") ? "books" : "discover"
   );
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [storage, setStorage] = useState<StorageInfo | null>(null);
@@ -116,7 +120,11 @@ export default function Dashboard({
       <div className="min-h-[300px]">
         {activeTab === "discover" ? (
           isOnline ? (
-            <Discover shelfBookIds={books.map((b) => b.id)} onBookAdded={handleBookFetched} />
+            <Discover
+              shelfBookIds={books.map((b) => b.id)}
+              initialQuery={initialSearch}
+              onBookAdded={handleBookFetched}
+            />
           ) : (
             <div className="bg-amber-50 border-2 border-amber-200 border-dashed rounded-[2rem] p-6 text-center">
               <WifiOff className="w-8 h-8 mx-auto text-amber-500 mb-2" />

@@ -23,6 +23,30 @@
   top: max(0.75rem, env(safe-area-inset-top, 0px));
 }
 
+/* Window Controls Overlay (desktop installs).
+   Declaring window-controls-overlay hands the title bar to the page, so the
+   app MUST provide its own draggable region or the window can no longer be
+   moved. This paints a branded strip across the title-bar area and keeps the
+   app content clear of it. */
+@media (display-mode: window-controls-overlay) {
+  body::before {
+    content: "";
+    position: fixed;
+    top: env(titlebar-area-y, 0);
+    left: env(titlebar-area-x, 0);
+    width: env(titlebar-area-width, 100%);
+    height: env(titlebar-area-height, 33px);
+    background: linear-gradient(90deg, #6d4aff 0%, #5433e0 100%);
+    -webkit-app-region: drag;
+    app-region: drag;
+    z-index: 10000;
+  }
+
+  #root {
+    padding-top: env(titlebar-area-height, 33px);
+  }
+}
+
 /* Custom scrollbar hiding for native-like swipe carousels */
 .scrollbar-none::-webkit-scrollbar {
   display: none;

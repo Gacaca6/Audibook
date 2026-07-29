@@ -96,6 +96,41 @@ export const GLYPHS = {
   play: `<svg viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M8 5.5v13l11-6.5Z"/></svg>`,
 };
 
+/** Windows widget preview — shown in the widget picker. */
+export function widgetPreviewHtml({ width = 600, height = 400 }) {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  html,body{margin:0;padding:0}
+  .canvas{
+    width:${width}px;height:${height}px;box-sizing:border-box;padding:34px;
+    background:linear-gradient(140deg,#f4f1ff 0%,#e9e3ff 100%);
+    font-family:${FONT_STACK};display:flex;align-items:center;justify-content:center;
+  }
+  .card{
+    width:100%;background:#fff;border-radius:20px;padding:24px;
+    box-shadow:0 18px 44px rgba(60,40,140,.18);display:flex;gap:18px;align-items:center;
+  }
+  .cover{width:88px;height:88px;border-radius:16px;flex:0 0 auto;overflow:hidden;
+    background:linear-gradient(150deg,${BRAND.violetLight},${BRAND.violetDark});
+    display:flex;align-items:center;justify-content:center;}
+  .meta{min-width:0}
+  .t{font-size:22px;font-weight:800;color:#1b1235;letter-spacing:-.3px;line-height:1.2;margin:0}
+  .c{font-size:16px;font-weight:600;color:#6b6785;margin:7px 0 0}
+  .p{font-size:13px;font-weight:600;color:#9a95b5;margin:10px 0 0}
+  .btn{margin-top:16px;display:inline-block;background:${BRAND.violet};color:#fff;
+    font-size:14px;font-weight:800;padding:10px 18px;border-radius:10px}
+</style></head>
+<body><div class="canvas"><div class="card">
+  <div class="cover">${markSvg(66)}</div>
+  <div class="meta">
+    <p class="t">The Adventures of Sherlock Holmes</p>
+    <p class="c">Chapter 1 — A Scandal in Bohemia</p>
+    <p class="p">12 chapters · 10:17:59 · human narrated</p>
+    <span class="btn">Resume listening</span>
+  </div>
+</div></div></body></html>`;
+}
+
 /** Google Play feature graphic — 1024x500, no essential content near the edges. */
 export function featureGraphicHtml({ width = 1024, height = 500 }) {
   return `<!doctype html>

@@ -77,6 +77,19 @@ export function listenForIncomingFiles(onFile: (file: File) => void): () => void
   };
 }
 
+/**
+ * A `web+audibook:` link the OS handed us (manifest protocol_handlers).
+ * The value arrives as the whole URL, e.g. "web+audibook:sherlock holmes",
+ * so strip the scheme and hand back just the search terms.
+ */
+export function readProtocolQuery(): string | null {
+  const raw = new URLSearchParams(window.location.search).get("find");
+  if (!raw) return null;
+  clearParam("find");
+  const terms = raw.replace(/^web\+audibook:(\/\/)?/i, "").trim();
+  return terms.length > 0 ? terms.slice(0, 120) : null;
+}
+
 /** Which tab a launcher shortcut asked for, if any. */
 export function readShortcutTab(): "discover" | "books" | "continue" | null {
   const tab = new URLSearchParams(window.location.search).get("tab");

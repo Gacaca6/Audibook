@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "motion/react";
 import * as db from "./lib/db";
 import { audioPlayer } from "./lib/audioPlayer";
 import { parseBookFile } from "./lib/parseBook";
-import { listenForIncomingFiles, readShortcutTab } from "./lib/fileIntake";
+import { listenForIncomingFiles, readShortcutTab, readProtocolQuery } from "./lib/fileIntake";
 import { sampleBook } from "./data/sampleBook";
 
 // Default initial achievements
@@ -79,6 +79,8 @@ export default function App() {
   // Name of a book arriving from the OS (share sheet / "Open with"), if any
   const [importingFile, setImportingFile] = useState<string | null>(null);
   const [initialTab] = useState(() => readShortcutTab());
+  // Search terms from a web+audibook: link opened elsewhere on the system
+  const [initialSearch] = useState(() => readProtocolQuery());
 
   // Initialize and persist user profile in localStorage
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
@@ -470,6 +472,7 @@ export default function App() {
                     userProfile={userProfile}
                     selectedBook={selectedBook}
                     initialTab={initialTab}
+                    initialSearch={initialSearch}
                     onSelectBook={handleSelectBook}
                     onRefreshBooks={handleBookAdded}
                     onBookFetched={handleBookFetched}

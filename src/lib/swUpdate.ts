@@ -45,23 +45,25 @@ function trackWaiting(registration: ServiceWorkerRegistration): void {
 export function registerServiceWorker(): void {
   if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
 
-  window.addEventListener("load", () => {
-    const swUrl = new URL("sw.js", window.location.href).pathname;
-    navigator.serviceWorker
-      .register(swUrl)
-      .then((registration) => {
-        trackWaiting(registration);
-        // Catch updates published while the app is open
-        setInterval(() => registration.update().catch(() => {}), 60 * 60 * 1000);
-      })
-      .catch((err) => {
-        console.error("ServiceWorker registration failed:", err);
-      });
-
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloading) return;
-      reloading = true;
-      window.location.reload();
+  // Register immediately rather than waiting for the `load` event. Deferring
+  // to `load` means crawlers and store-readiness scanners that snapshot the
+  // page early see no registration at all and report the app as having no
+  // service worker. Registration is cheap and does not block rendering.
+  const swUrl = new URL("sw.js", window.location.href).pathname;
+  navigator.serviceWorker
+    .register(swUrl)
+    .then((registration) => {
+      trackWaiting(registration);
+      // Catch updates published while the app is open
+      setInterval(() => registration.update().catch(() => {}), 60 * 60 * 1000);
+    })
+    .catch((err) => {
+      console.error("ServiceWorker registration failed:", err);
     });
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
   });
 }

@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { launch, findChrome } from "./browser.mjs";
-import { iconHtml, shortcutIconHtml, featureGraphicHtml, GLYPHS } from "./brand.mjs";
+import { iconHtml, shortcutIconHtml, featureGraphicHtml, widgetPreviewHtml, GLYPHS } from "./brand.mjs";
 
 // Renders every launcher and store graphic at exact pixel dimensions using the
 // system Chrome. Re-run any time the brand mark changes:  node tools/generate-icons.mjs
@@ -96,6 +96,15 @@ async function main() {
     out: `${STORE}/feature-graphic-1024x500.jpg`,
     type: "jpeg",
     quality: 95,
+  });
+
+  console.log("Widget preview:");
+  mkdirSync("public/widgets", { recursive: true });
+  await shoot(page, {
+    html: widgetPreviewHtml({ width: 600, height: 400 }),
+    width: 600,
+    height: 400,
+    out: "public/widgets/continue-preview.png",
   });
 
   await browser.close();
