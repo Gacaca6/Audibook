@@ -10,6 +10,7 @@ import * as db from "./lib/db";
 import { audioPlayer } from "./lib/audioPlayer";
 import { parseBookFile } from "./lib/parseBook";
 import { listenForIncomingFiles, readShortcutTab, readProtocolQuery } from "./lib/fileIntake";
+import { registerPeriodicRefresh, onQueuedDownloadFinished } from "./lib/backgroundSync";
 import { sampleBook } from "./data/sampleBook";
 
 // Default initial achievements
@@ -312,6 +313,37 @@ export default function App() {
       audioPlayer.onChapterEnd = undefined;
       audioPlayer.onMissingDownload = undefined;
     };
+  }, []);
+
+  // Background Sync finished a download the user queued while offline —
+  // reflect it on the shelf without needing a reload.
+  useEffect(() => {
+    registerPeriodicRefresh();
+    return onQueuedDownloadFinished((bookId, chapterId, title) => {
+      setBooks((prev) =>
+        prev.map((b) =>
+          b.id === bookId
+            ? {
+                ...b,
+                chapters: b.chapters.map((ch) =>
+                  ch.id === chapterId ? { ...ch, downloaded: true } : ch
+                ),
+              }
+            : b
+        )
+      );
+      setSelectedBook((cur) =>
+        cur?.id === bookId
+          ? {
+              ...cur,
+              chapters: cur.chapters.map((ch) =>
+                ch.id === chapterId ? { ...ch, downloaded: true } : ch
+              ),
+            }
+          : cur
+      );
+      setToastText(`"${title}" finished downloading for offline listening.`);
+    });
   }, []);
 
   // Books opened from the OS ("Open with Audibook") or shared into the app

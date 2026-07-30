@@ -28,6 +28,7 @@ import {
 import { downloadChapterAudio } from "../lib/librivox";
 import { audioPlayer, useAudioPlayer } from "../lib/audioPlayer";
 import { hasSpaceFor, isQuotaError, STORAGE_FULL_MESSAGE } from "../lib/storage";
+import { queueDownloadForRetry } from "../lib/backgroundSync";
 import * as db from "../lib/db";
 
 interface AudiobookPlayerProps {
@@ -289,7 +290,22 @@ export default function AudiobookPlayer({
           audioPlayer.syncBook(updated);
           onUpdateXP(15);
         } catch (err: any) {
-          setError(isQuotaError(err) ? STORAGE_FULL_MESSAGE : err.message || "Download failed. Please try again.");
+          // A network failure is worth retrying automatically; a full disk is not.
+          if (!isQuotaError(err) && !navigator.onLine) {
+            const queuedChapters = [chapter, ...dlQueueRef.current];
+            const accepted = await Promise.all(
+              queuedChapters.map((ch) => queueDownloadForRetry(bookRef.current.id, ch))
+            );
+            setError(
+              accepted.some(Boolean)
+                ? `You went offline. ${queuedChapters.length === 1 ? "This chapter" : `${queuedChapters.length} chapters`} will finish downloading automatically once you're back online.`
+                : "You're offline. Reconnect and try the download again."
+            );
+          } else {
+            setError(
+              isQuotaError(err) ? STORAGE_FULL_MESSAGE : err.message || "Download failed. Please try again."
+            );
+          }
           for (const pending of dlQueueRef.current) clearDownloadMark(pending.id);
           dlQueueRef.current = [];
         } finally {

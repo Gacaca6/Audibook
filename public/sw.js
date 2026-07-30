@@ -1,4 +1,4 @@
-const CACHE_NAME = 'audibook-cache-v9';
+const CACHE_NAME = 'audibook-cache-v10';
 const SHARE_CACHE = 'audibook-share';
 const SHARE_KEY = '/__shared-book';
 
@@ -45,6 +45,164 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// ---------------------------------------------------------------------------
+// IndexedDB access (the SW can't import the app's TypeScript db module, so it
+// speaks to the same database directly). Schema must match src/lib/db.ts.
+// ---------------------------------------------------------------------------
+const DB_NAME = 'aubibook-db';
+const DB_VERSION = 2;
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('books')) db.createObjectStore('books', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('audio')) db.createObjectStore('audio');
+      if (!db.objectStoreNames.contains('pending')) db.createObjectStore('pending', { keyPath: 'key' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbRequest(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function notifyClients(message) {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of clients) client.postMessage(message);
+}
+
+/**
+ * Background Sync: finish chapter downloads that failed while offline.
+ * The page queues them in the "pending" store; we drain it here, which the
+ * browser will retry on our behalf until it succeeds.
+ */
+async function drainPendingDownloads() {
+  const db = await openDb();
+  const queued = await idbRequest(db.transaction('pending', 'readonly').objectStore('pending').getAll());
+  if (!queued.length) return;
+
+  for (const item of queued) {
+    try {
+      const response = await fetch(item.url);
+      if (!response.ok) continue; // leave queued; a later sync retries
+      const blob = await response.blob();
+      if (!blob.size) continue;
+
+      const writeDb = await openDb();
+      const tx = writeDb.transaction(['audio', 'pending'], 'readwrite');
+      tx.objectStore('audio').put(blob, item.key);
+      tx.objectStore('pending').delete(item.key);
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+
+      await notifyClients({
+        type: 'download-finished',
+        bookId: item.bookId,
+        chapterId: item.chapterId,
+        title: item.title
+      });
+
+      // Only surface a notification if the user already granted permission
+      if (Notification.permission === 'granted') {
+        await self.registration.showNotification('Chapter ready offline', {
+          body: `"${item.title}" finished downloading.`,
+          icon: './icons/icon-192.png',
+          badge: './icons/icon-192.png',
+          tag: `audibook-dl-${item.key}`,
+          data: { url: './?tab=books' }
+        });
+      }
+    } catch (err) {
+      // Still offline or the fetch failed — keep it queued for the next sync
+    }
+  }
+}
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'audibook-downloads') {
+    event.waitUntil(drainPendingDownloads());
+  }
+});
+
+/**
+ * Periodic Background Sync: keep the cached shell fresh so an offline launch
+ * shows the current build, and opportunistically finish queued downloads.
+ */
+async function refreshShell() {
+  const cache = await caches.open(CACHE_NAME);
+  await Promise.allSettled(
+    ['./', './manifest.json'].map(async (url) => {
+      const response = await fetch(url, { cache: 'reload' });
+      if (response && response.ok) await cache.put(url, response);
+    })
+  );
+  await drainPendingDownloads();
+}
+
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'audibook-refresh') {
+    event.waitUntil(refreshShell());
+  }
+});
+
+/**
+ * Push notifications. Audibook has no server of its own, so nothing is being
+ * broadcast today — this handler is what makes the app able to receive a push
+ * the moment a sender exists, and it is already used locally by the download
+ * queue above.
+ */
+self.addEventListener('push', (event) => {
+  const payload = {
+    title: 'Audibook',
+    body: 'Your next chapter is ready to listen.',
+    url: './'
+  };
+  if (event.data) {
+    try {
+      Object.assign(payload, event.data.json());
+    } catch (err) {
+      payload.body = event.data.text();
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
+      tag: payload.tag || 'audibook-push',
+      data: { url: payload.url || './' }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || './';
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clients) {
+        if ('focus' in client) {
+          if (client.navigate) await client.navigate(target).catch(() => {});
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })()
+  );
 });
 
 // Web Share Target: Android hands us a POSTed book file. Stash it in a cache
