@@ -1,18 +1,17 @@
-const CACHE_NAME = 'audibook-cache-v8';
+const CACHE_NAME = 'audibook-cache-v9';
 const SHARE_CACHE = 'audibook-share';
 const SHARE_KEY = '/__shared-book';
 
-// Precache the stable app shell; hashed JS/CSS bundles are picked up at
-// runtime by the stale-while-revalidate handler below.
+// Keep the install step SMALL. Everything listed here must download before the
+// worker can activate, and a worker stuck in `installing` counts as "no service
+// worker" to store-readiness scanners (and delays offline readiness for real
+// users). Only the documents needed to boot offline are precached; icons and the
+// hashed JS/CSS bundles are picked up by the runtime handler below on first
+// render, which happens moments later anyway.
 const ASSETS_TO_CACHE = [
   './',
   './manifest.json',
-  './privacy.html',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-192.png',
-  './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/icon-192.png'
 ];
 
 self.addEventListener('install', (event) => {
